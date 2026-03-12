@@ -14,7 +14,7 @@ All rights reserved (see LICENSE).
 #include <string>
 
 constexpr unsigned MAJOR = 1;
-constexpr unsigned MINOR = 15;
+constexpr unsigned MINOR = 16;
 constexpr unsigned PATCH = 0;
 constexpr bool DEV = true;
 constexpr unsigned RC = 0;
