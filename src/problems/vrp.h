@@ -14,6 +14,7 @@ All rights reserved (see LICENSE).
 #include <mutex>
 #include <numeric>
 #include <ranges>
+#include <semaphore>
 #include <set>
 #include <thread>
 
