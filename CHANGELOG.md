@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+#### Internals
+
+- Add include to fix `std::counting_semaphore` usage (#1333)
+
 ## [v1.15.0] - 2026-03-12
 
 ### Added
