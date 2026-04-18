@@ -17,6 +17,12 @@ check runs without a live router (no Valhalla, no OSRM).
 | `problem-embedded-shipments-3.json` / `-4` / `-5` | Busportal handoff, M3 prep | Real Lviv dispatch shipments with Valhalla-derived matrices embedded so the harness works offline. Source: `handoff/vroom-fork-fixtures/` on `handoff/initial-briefing`. |
 | `problem-co-located-group.json` | Busportal fork, M3 | 3 pickups at stop A + 1 at stop B; exercises F1 service-time dedup when all land on one vehicle consecutively. |
 | `problem-co-located-split.json` | Busportal fork, M3 | 4 pickups at one stop with a capacity limit that forces `pickup-pickup-delivery-delivery-pickup-pickup-delivery-delivery`; exercises per-run dedup on a single vehicle with two co-located runs. |
+| `problem-co-located-tw-stagger.json` | Busportal fork, M3.1 | Three same-coord pickups with staggered TW-starts; common arrival respects every member's earliest-start. |
+| `problem-co-located-breakdown-reaccum.json` | Busportal fork, M3.1 | Multi-bucket breakdown + dedup; catches the "partial summary re-accumulation" bug. |
+| `problem-soft-tw-shift-late.json` | Busportal fork, M4 | Pickup pushed from earliest feasible (500) to preferred (6000); zero soft cost. |
+| `problem-soft-tw-before-preferred.json` | Busportal fork, M4 | Downstream hard TW caps pickup below `preferred_start`; pays `cost_per_second_before`. |
+| `problem-soft-tw-after-preferred.json` | Busportal fork, M4 | Earliest feasible past `preferred_end`; pays `cost_per_second_after` (shift-late pass does not pull earlier). |
+| `problem-synthetic-30.json` | Busportal fork, M4 (bench coverage) | Deterministic 28-shipment synthetic (`scripts/gen-synthetic-30.py`, seed 42). 20 regular + 5 co-located + 3 confirmed; some co-located carry `soft_time_window`. Bench fixture for the RFC §8 performance budget. |
 
 ## Diagnostics expectations
 

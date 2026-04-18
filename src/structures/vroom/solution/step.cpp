@@ -33,7 +33,8 @@ Step::Step(const Job& job,
     service(service),
     load(std::move(load)),
     description(job.description),
-    co_located_group(job.co_located_group) {
+    co_located_group(job.co_located_group),
+    soft_time_window(job.soft_time_window) {
 }
 
 Step::Step(const Break& b, Amount load)

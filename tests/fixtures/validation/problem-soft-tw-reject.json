@@ -1,0 +1,40 @@
+{
+  "_comment": "F2 before-preferred case: hard TW [0, 2000] caps the latest feasible below preferred_start=3000. Pass can't reach preferred; arrival stays at latest feasible (=2000), soft cost is linear: 1.0 * (3000 - 2000) = 1000.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 5000],
+      "capacity": [5],
+      "costs": {"per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 501,
+        "location_index": 1,
+        "service": 100,
+        "time_windows": [[0, 2000]],
+        "soft_time_window": {
+          "preferred": [3000, 4000],
+          "cost_per_second_before": 1.0,
+          "cost_per_second_after": 1.0
+        }
+      },
+      "delivery": {"id": 501, "location_index": 2, "service": 0},
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 500, 800],
+        [500, 0, 400],
+        [800, 400, 0]
+      ]
+    }
+  }
+}

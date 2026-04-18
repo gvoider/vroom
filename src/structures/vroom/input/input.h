@@ -109,6 +109,10 @@ private:
   // location within ~1.1 m" on pickup steps.
   void check_co_located_groups() const;
 
+  // Busportal fork, M4 / F2. Enforce "soft_time_window.preferred is a
+  // sub-interval of at least one of the job's hard time_windows".
+  void check_soft_time_windows() const;
+
   UserCost check_cost_bound(const Matrix<UserCost>& matrix) const;
 
   void set_skills_compatibility();

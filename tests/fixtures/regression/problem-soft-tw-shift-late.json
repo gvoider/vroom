@@ -1,0 +1,40 @@
+{
+  "_comment": "F2 happy path: pickup has a hard TW [0, 10000] and a soft preferred [5000, 6000] with cost_per_second_before=1. Mainline would pick earliest arrival (~500). The post-solve pass shifts the arrival into [5000, 6000] because latest-feasible allows it, cutting the soft-cost to 0.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [5],
+      "costs": {"per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 401,
+        "location_index": 1,
+        "service": 100,
+        "time_windows": [[0, 10000]],
+        "soft_time_window": {
+          "preferred": [5000, 6000],
+          "cost_per_second_before": 1.0,
+          "cost_per_second_after": 0
+        }
+      },
+      "delivery": {"id": 401, "location_index": 2, "service": 0},
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 500, 800],
+        [500, 0, 400],
+        [800, 400, 0]
+      ]
+    }
+  }
+}

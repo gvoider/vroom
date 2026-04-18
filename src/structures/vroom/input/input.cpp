@@ -30,6 +30,7 @@ All rights reserved (see LICENSE).
 #include "structures/vroom/input/input.h"
 #include "utils/co_location_dedup.h"
 #include "utils/helpers.h"
+#include "utils/soft_time_window_pass.h"
 
 namespace vroom {
 
@@ -1257,12 +1258,43 @@ void Input::check_co_located_groups() const {
   }
 }
 
+void Input::check_soft_time_windows() const {
+  // Busportal fork, M4 / F2. Every Job whose soft_time_window is present
+  // must have its preferred interval fully contained in at least one of
+  // its hard time_windows. Otherwise the soft bias could push arrivals
+  // toward times the solver cannot reach anyway.
+  for (const auto& job : jobs) {
+    const auto& soft = job.soft_time_window;
+    if (!soft.present) {
+      continue;
+    }
+    // Any hard TW that fully contains preferred wins — empty tws means
+    // the default "unbounded" TW which trivially contains any preferred.
+    bool contained = false;
+    for (const auto& tw : job.tws) {
+      if (tw.is_default() ||
+          (tw.start <= soft.preferred_start &&
+           soft.preferred_end <= tw.end)) {
+        contained = true;
+        break;
+      }
+    }
+    if (!contained) {
+      throw InputException(std::format(
+        "soft_time_window.preferred for job {} is not contained in any "
+        "hard time_window.",
+        job.id));
+    }
+  }
+}
+
 Solution Input::solve(const unsigned nb_searches,
                       const unsigned depth,
                       const unsigned nb_thread,
                       const Timeout& timeout) {
   run_basic_checks();
   check_co_located_groups();
+  check_soft_time_windows();
 
   if (_has_initial_routes) {
     set_vehicle_steps_ranks();
@@ -1364,6 +1396,11 @@ Solution Input::solve(const unsigned nb_searches,
   // Busportal fork, M3 / F1. Dedup consecutive co-located pickup runs
   // and populate computing_times.co_location_savings_seconds.
   utils::apply_co_location_dedup(*this, sol);
+
+  // Busportal fork, M4 / F2. Soft-time-window post-solve pass:
+  // shift arrivals as late as feasible toward each step's preferred
+  // interval, then compute violation costs and roll into the breakdown.
+  utils::apply_soft_time_window_pass(*this, sol);
 
   return sol;
 }

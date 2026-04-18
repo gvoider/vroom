@@ -228,6 +228,69 @@ inline std::vector<TimeWindow> get_time_windows(const rapidjson::Value& o,
   return tws;
 }
 
+// Busportal fork, M4 / F2. Parse optional `soft_time_window` block from
+// a pickup/delivery/job step. Validation (preferred ⊂ some hard TW) is
+// deferred to Input::check_soft_time_windows() once the Job is built.
+inline SoftTimeWindow get_soft_time_window(const rapidjson::Value& o,
+                                           const std::string& task_type,
+                                           Id id) {
+  if (!o.HasMember("soft_time_window")) {
+    return SoftTimeWindow{};
+  }
+  const auto& s = o["soft_time_window"];
+  if (!s.IsObject()) {
+    throw InputException(
+      std::format("Invalid soft_time_window for {} {}.", task_type, id));
+  }
+  if (!s.HasMember("preferred") || !s["preferred"].IsArray() ||
+      s["preferred"].Size() != 2 || !s["preferred"][0].IsUint() ||
+      !s["preferred"][1].IsUint()) {
+    throw InputException(std::format(
+      "Invalid soft_time_window.preferred for {} {}.", task_type, id));
+  }
+  const UserDuration pref_start = s["preferred"][0].GetUint();
+  const UserDuration pref_end = s["preferred"][1].GetUint();
+  if (pref_end < pref_start) {
+    throw InputException(
+      std::format("Invalid soft_time_window.preferred for {} {}: end < start.",
+                  task_type,
+                  id));
+  }
+  double cost_before = 0.0;
+  double cost_after = 0.0;
+  if (s.HasMember("cost_per_second_before")) {
+    if (!s["cost_per_second_before"].IsNumber()) {
+      throw InputException(
+        std::format("Invalid soft_time_window.cost_per_second_before for {} {}.",
+                    task_type,
+                    id));
+    }
+    cost_before = s["cost_per_second_before"].GetDouble();
+    if (cost_before < 0) {
+      throw InputException(std::format(
+        "soft_time_window.cost_per_second_before must be >= 0 for {} {}.",
+        task_type,
+        id));
+    }
+  }
+  if (s.HasMember("cost_per_second_after")) {
+    if (!s["cost_per_second_after"].IsNumber()) {
+      throw InputException(
+        std::format("Invalid soft_time_window.cost_per_second_after for {} {}.",
+                    task_type,
+                    id));
+    }
+    cost_after = s["cost_per_second_after"].GetDouble();
+    if (cost_after < 0) {
+      throw InputException(std::format(
+        "soft_time_window.cost_per_second_after must be >= 0 for {} {}.",
+        task_type,
+        id));
+    }
+  }
+  return SoftTimeWindow(pref_start, pref_end, cost_before, cost_after);
+}
+
 inline Break get_break(const rapidjson::Value& b, unsigned amount_size) {
   check_id(b, "break");
 
@@ -511,7 +574,8 @@ inline Job get_job(const rapidjson::Value& json_job, unsigned amount_size) {
                                   !json_job.HasMember("delivery") &&
                                   !json_job.HasMember("pickup");
 
-  return Job(json_job["id"].GetUint64(),
+  const auto job_id = json_job["id"].GetUint64();
+  return Job(job_id,
              get_task_location(json_job, "job"),
              get_duration(json_job, "setup"),
              get_duration(json_job, "service"),
@@ -523,7 +587,8 @@ inline Job get_job(const rapidjson::Value& json_job, unsigned amount_size) {
              get_time_windows(json_job, "job"),
              get_string(json_job, "description"),
              get_duration_per_type(json_job, "setup_per_type", "job"),
-             get_duration_per_type(json_job, "service_per_type", "job"));
+             get_duration_per_type(json_job, "service_per_type", "job"),
+             get_soft_time_window(json_job, "job", job_id));
 }
 
 template <class T> inline Matrix<T> get_matrix(rapidjson::Value& m) {
@@ -627,8 +692,9 @@ void parse(Input& input,
       check_id(json_pickup, "pickup");
 
       auto co_located_group = get_string(json_pickup, "co_located_group");
+      const auto pickup_id = json_pickup["id"].GetUint64();
 
-      const Job pickup(json_pickup["id"].GetUint64(),
+      const Job pickup(pickup_id,
                        JOB_TYPE::PICKUP,
                        get_task_location(json_pickup, "pickup"),
                        get_duration(json_pickup, "setup"),
@@ -644,28 +710,29 @@ void parse(Input& input,
                        get_duration_per_type(json_pickup,
                                              "service_per_type",
                                              "pickup"),
-                       std::move(co_located_group));
+                       std::move(co_located_group),
+                       get_soft_time_window(json_pickup, "pickup", pickup_id));
 
       // Defining delivery job.
       auto& json_delivery = json_shipment["delivery"];
       check_id(json_delivery, "delivery");
 
-      const Job delivery(json_delivery["id"].GetUint64(),
-                         JOB_TYPE::DELIVERY,
-                         get_task_location(json_delivery, "delivery"),
-                         get_duration(json_delivery, "setup"),
-                         get_duration(json_delivery, "service"),
-                         amount,
-                         skills,
-                         priority,
-                         get_time_windows(json_delivery, "delivery"),
-                         get_string(json_delivery, "description"),
-                         get_duration_per_type(json_delivery,
-                                               "setup_per_type",
-                                               "delivery"),
-                         get_duration_per_type(json_delivery,
-                                               "service_per_type",
-                                               "delivery"));
+      const auto delivery_id = json_delivery["id"].GetUint64();
+      const Job delivery(
+        delivery_id,
+        JOB_TYPE::DELIVERY,
+        get_task_location(json_delivery, "delivery"),
+        get_duration(json_delivery, "setup"),
+        get_duration(json_delivery, "service"),
+        amount,
+        skills,
+        priority,
+        get_time_windows(json_delivery, "delivery"),
+        get_string(json_delivery, "description"),
+        get_duration_per_type(json_delivery, "setup_per_type", "delivery"),
+        get_duration_per_type(json_delivery, "service_per_type", "delivery"),
+        /*co_located_group=*/"",
+        get_soft_time_window(json_delivery, "delivery", delivery_id));
 
       input.add_shipment(pickup, delivery);
     }
