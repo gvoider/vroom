@@ -20,6 +20,7 @@ Solution::Solution(const Amount& zero_amount,
 
   for (const auto& route : this->routes) {
     summary.cost += route.cost;
+    summary.cost_breakdown += route.cost_breakdown;
     summary.delivery += route.delivery;
     summary.pickup += route.pickup;
     summary.setup += route.setup;

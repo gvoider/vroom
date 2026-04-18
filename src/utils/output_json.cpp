@@ -146,12 +146,32 @@ rapidjson::Document to_json(const vroom::Exception& e) {
   return json_output;
 }
 
+rapidjson::Value to_json(const CostBreakdown& breakdown,
+                         rapidjson::Document::AllocatorType& allocator) {
+  rapidjson::Value json_breakdown(rapidjson::kObjectType);
+  json_breakdown.AddMember("fixed_vehicle", breakdown.fixed_vehicle, allocator);
+  json_breakdown.AddMember("duration", breakdown.duration, allocator);
+  json_breakdown.AddMember("distance", breakdown.distance, allocator);
+  json_breakdown.AddMember("task", breakdown.task, allocator);
+  json_breakdown.AddMember("priority_bias", breakdown.priority_bias, allocator);
+  json_breakdown.AddMember("soft_time_window_violation",
+                           breakdown.soft_time_window_violation,
+                           allocator);
+  json_breakdown.AddMember("published_vehicle_deviation",
+                           breakdown.published_vehicle_deviation,
+                           allocator);
+  return json_breakdown;
+}
+
 rapidjson::Value to_json(const Summary& summary,
                          bool report_distances,
                          rapidjson::Document::AllocatorType& allocator) {
   rapidjson::Value json_summary(rapidjson::kObjectType);
 
   json_summary.AddMember("cost", summary.cost, allocator);
+  json_summary.AddMember("cost_breakdown",
+                         to_json(summary.cost_breakdown, allocator),
+                         allocator);
   json_summary.AddMember("routes", summary.routes, allocator);
   json_summary.AddMember("unassigned", summary.unassigned, allocator);
 
@@ -206,6 +226,9 @@ rapidjson::Value to_json(const Route& route,
 
   json_route.AddMember("vehicle", route.vehicle, allocator);
   json_route.AddMember("cost", route.cost, allocator);
+  json_route.AddMember("cost_breakdown",
+                       to_json(route.cost_breakdown, allocator),
+                       allocator);
 
   if (!route.description.empty()) {
     json_route.AddMember("description", rapidjson::Value(), allocator);

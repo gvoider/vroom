@@ -13,12 +13,14 @@ All rights reserved (see LICENSE).
 #include "structures/typedefs.h"
 #include "structures/vroom/amount.h"
 #include "structures/vroom/solution/computing_times.h"
+#include "structures/vroom/solution/cost_breakdown.h"
 #include "structures/vroom/solution/violations.h"
 
 namespace vroom {
 
 struct Summary {
   UserCost cost{0};
+  CostBreakdown cost_breakdown;
   const unsigned routes;
   const unsigned unassigned;
   Amount delivery;

@@ -370,6 +370,7 @@ The `summary` object has the following properties:
 | Key         | Description |
 | ----------- | ----------- |
 | `cost` | total cost for all routes |
+| `cost_breakdown` | per-objective breakdown of `cost`; see below |
 | `routes` | number of routes in the solution |
 | `unassigned` | number of tasks that could not be served |
 | `setup` | total setup time for all routes |
@@ -394,6 +395,7 @@ A `route` object has the following properties:
 | `vehicle` | id of the vehicle assigned to this route |
 | [`steps`](#steps) | array of `step` objects |
 | `cost` | cost for this route |
+| `cost_breakdown` | per-objective breakdown of `cost`; see below |
 | `setup` | total setup time for this route |
 | `service` | total service time for this route |
 | `duration` | total travel time for this route |
@@ -409,6 +411,35 @@ A `route` object has the following properties:
 
 *: provided when using the `-g` flag.
 **: provided when using the `-g` flag or passing distance matrices in input.
+
+### Cost breakdown
+
+Both `summary.cost_breakdown` and `routes[].cost_breakdown` expose the
+per-objective components that make up the corresponding `cost`. The
+invariant is
+
+```
+cost ≈ fixed_vehicle + duration + distance + task
+     + priority_bias
+     + soft_time_window_violation
+     + published_vehicle_deviation
+```
+
+with up to one integer unit of rounding drift per route and no more than
+`routes` units of drift on the summary (Busportal fork, M1).
+
+| Key | Meaning |
+|---|---|
+| `fixed_vehicle` | `vehicle.costs.fixed` if the route is non-empty, else 0 |
+| `duration` | monetary cost derived from `duration × costs.per_hour / 3600`; when the user supplies a custom `cost` matrix this bucket absorbs the full travel cost since duration/distance are no longer separable |
+| `distance` | monetary cost derived from `distance × costs.per_km / 1000`; zero when a custom `cost` matrix is used |
+| `task` | `task_duration × costs.per_task_hour / 3600` |
+| `priority_bias` | reserved for a future milestone (always 0 today) |
+| `soft_time_window_violation` | populated when M4 (soft time windows) ships |
+| `published_vehicle_deviation` | populated when M8 (published-vehicle soft stability) ships |
+
+Both objects are always present. The forward-looking keys are emitted as
+zero so downstream code can consume the same shape across milestones.
 
 ### Steps
 

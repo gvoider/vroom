@@ -9,6 +9,8 @@ check runs without a live router (no Valhalla, no OSRM).
 | Fixture | Source | Notes |
 |---|---|---|
 | `problem-example-2.json` / `solution-example-2.json` | Upstream `docs/example_2.json` (+ `_sol`) | Smallest self-contained VRPTW; exercises matrix input, time windows, skills. |
+| `problem-cost-breakdown.json` / `solution-cost-breakdown.json` | Busportal fork, M1 | Exercises the F3 `cost_breakdown` invariant: non-zero `fixed_vehicle`, `duration`, `distance`, and `task` buckets (per_hour=7200, per_km=500, per_task_hour=1800, fixed=1000). |
+| `problem-custom-cost-matrix.json` / `solution-custom-cost-matrix.json` | Busportal fork, M1 | Exercises the non-`cost_based_on_metrics` path: a user-supplied `costs` matrix makes duration/distance attribution meaningless, so the full travel cost lands in the `duration` bucket. |
 
 ## Adding a fixture
 

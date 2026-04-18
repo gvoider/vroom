@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Added (Busportal fork — M1, F3 per-objective cost breakdown)
+
+- `summary.cost_breakdown` and `routes[].cost_breakdown` in the solution JSON. Each breakdown exposes `fixed_vehicle`, `duration`, `distance`, `task`, `priority_bias`, `soft_time_window_violation`, and `published_vehicle_deviation` in the fork's integer cost unit. Sum equals `cost` within ≤1 unit of rounding drift per route.
+- `vroom::CostBreakdown` struct at `src/structures/vroom/solution/cost_breakdown.h`; additive via `operator+=`.
+- `utils::compute_route_cost_breakdown()` helper wired at the three `Route`-construction sites (`src/utils/helpers.cpp` CVRP + VRPTW paths; `src/algorithms/validation/choose_ETA.cpp`).
+- `CostWrapper::per_hour()` / `per_km()` accessors so the breakdown can split the travel cost using the same formula as `user_cost_from_user_metrics`.
+- `to_json(const CostBreakdown&, ...)` overload in `src/utils/output_json.{h,cpp}` emitting the new shape.
+- `tests/fixtures/regression/problem-cost-breakdown.json` + `solution-cost-breakdown.json` — a self-contained fixture exercising non-zero buckets.
+- `scripts/regression.sh` now asserts the breakdown sum invariant (fails CI when drift > 1 unit).
+- `docs/API.md` — new "Cost breakdown" subsection documenting semantics, invariants, and the forward-looking keys.
+
+Backwards compatibility: the three forward-looking keys are emitted as zero so consumers can adopt the field shape once and let later milestones populate the values.
+
 ### Added (Busportal fork — M0 scaffolding)
 
 - `scripts/bench.sh` — per-fixture solve-time harness (median / p99 over N runs, CSV output). See `handoff/vroom-fork-bench.md` on the `handoff/initial-briefing` branch.

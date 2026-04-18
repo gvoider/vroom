@@ -64,6 +64,28 @@ for pfile in "$FIXTURES"/problem-*.json; do
     echo "FAIL $label: expected cost=$exp_cost routes=$exp_routes unassigned=$exp_unassigned" >&2
     echo "         got cost=$act_cost routes=$act_routes unassigned=$act_unassigned" >&2
     fail=$((fail + 1))
+    continue
+  fi
+
+  # Cost-breakdown invariant (F3, added in M1): every component sums to
+  # the route cost within one integer unit; the summary is the sum of
+  # route breakdowns.
+  if echo "$actual" | jq -e '.summary.cost_breakdown' >/dev/null 2>&1; then
+    bd_drift=$(echo "$actual" | jq '
+      def sum_bd(bd): bd.fixed_vehicle + bd.duration + bd.distance
+                      + bd.task + bd.priority_bias
+                      + bd.soft_time_window_violation
+                      + bd.published_vehicle_deviation;
+      [
+        (.summary.cost - sum_bd(.summary.cost_breakdown) | fabs),
+        (.routes[] | .cost - sum_bd(.cost_breakdown) | fabs)
+      ] | max')
+    if (( $(echo "$bd_drift > 1" | bc -l) )); then
+      echo "FAIL $label: cost_breakdown drift=$bd_drift > 1 unit" >&2
+      fail=$((fail + 1))
+      continue
+    fi
+    echo "OK   $label (cost=$act_cost routes=$act_routes unassigned=$act_unassigned breakdown_drift=$bd_drift)"
   else
     echo "OK   $label (cost=$act_cost routes=$act_routes unassigned=$act_unassigned)"
   fi

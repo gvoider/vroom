@@ -17,6 +17,7 @@ All rights reserved (see LICENSE).
 
 #include "structures/typedefs.h"
 #include "structures/vroom/raw_route.h"
+#include "structures/vroom/solution/cost_breakdown.h"
 #include "structures/vroom/solution_state.h"
 #include "structures/vroom/tw_route.h"
 #include "utils/exception.h"
@@ -695,6 +696,23 @@ Route format_route(const Input& input,
                    std::unordered_set<Index>& unassigned_ranks);
 
 Solution format_solution(const Input& input, const TWSolution& tw_routes);
+
+// Per-objective breakdown of the route's cost. Populates fixed_vehicle,
+// duration, distance, task; forward-looking fields (priority_bias,
+// soft_time_window_violation, published_vehicle_deviation) remain zero
+// until later milestones wire them in.
+//
+// When the vehicle's cost is computed from per_hour/per_km and the
+// duration/distance matrices, the travel cost is split cleanly into
+// the duration and distance buckets. When the user supplied a custom
+// cost matrix, duration/distance attribution is meaningless so the full
+// travel cost goes to the duration bucket and distance stays zero.
+CostBreakdown
+compute_route_cost_breakdown(const Vehicle& v,
+                             UserDuration user_duration,
+                             UserDistance user_distance,
+                             Duration task_duration_internal,
+                             UserCost travel_cost_fallback);
 
 } // namespace vroom::utils
 
