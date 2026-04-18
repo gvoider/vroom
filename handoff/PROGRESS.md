@@ -288,3 +288,28 @@ All well under the 500 ms / 30-shipment budget. The sandbox only has up to 5-shi
 **Status**: complete
 **PR**: #6 (merged, `73cbeee6`); tag `v1.15.0-busportal.m3`
 **Summary**: Picked up master at `149711b1`, staged the three embedded-shipments fixtures into `tests/fixtures/regression/`, captured the pre-M3 baseline, implemented F1 with minimal scope (input parsing + validation + post-solve arrival-equalization / service dedup), added two new F1 fixtures, patched docs + CHANGELOG, opened PR into master, fixed one CI-surfaced docker-tag bug, self-merged on green, tagged `v1.15.0-busportal.m3`. Full details in the M3 milestone section above.
+
+---
+
+## Inbox directive — issue #7 "M3 post-merge follow-up: 4 correctness fixes before M4 starts" — 2026-04-18
+
+**Status**: complete, merged, tagged
+**PR**: #8 (merged, `4fe36782`); tag `v1.15.0-busportal.m3.1`
+**RFC amendment**: `3dbd0f97` on `handoff/initial-briefing` — §4.1.3 clarified for per-run equalization
+
+### What shipped
+- **Bug 1 fix**: `step.duration` is cumulative *travel* per VROOM upstream; only `step.arrival` shifts during dedup. `scripts/regression.sh` now asserts `arrival[k] - arrival[0] == duration[k] + cumulative(setup+service+waiting) before k` on every fixture, so any future desync fails CI immediately.
+- **Bug 2 fix**: `common_arrival = max(anchor.arrival, max(member.tws.front().start))` so equalized arrivals never violate any member's own earliest-start TW. New fixture `problem-co-located-tw-stagger.json` exercises it.
+- **Pooled-service placement** (tied to bug 1): pooled `max(service)` now sits on the LAST member of a run, not the first. Every intra-run member reports `service: 0` at the shared arrival, keeping the step-timing invariant intact. Required re-recording the `co-located-{group,split}` solutions.
+- **Bug 3 fix**: RFC §4.1.3 amended to clarify that equalization applies within a maximal consecutive run, not group-as-a-whole. VROOM's local search legitimately interleaves groups across deliveries when capacity forces it; rejecting such solutions would eliminate otherwise-feasible answers. `docs/API.md` mirrors the amendment.
+- **Bug 4 fix**: every field of `summary.cost_breakdown` is re-accumulated from routes via a single helper after any dedup adjustment. Previously only `task` was updated; other buckets held stale pre-dedup aggregates. Worked by accident on M3 fixtures because `task` was the only non-zero bucket. New fixture `problem-co-located-breakdown-reaccum.json` exercises multi-bucket breakdown with dedup.
+
+Two new fixtures + re-records of two existing solutions. All 13 fixtures pass with the new invariant assertion. Bench `bench-post-m3.1.csv` shows no regression beyond sandbox noise.
+
+### Non-blocking observations deferred per #7
+- 30-shipment synthetic fixture for the RFC §8 performance gate: deferred to before M4 lands.
+- Upstreamability note (pass reads `v.costs.per_task_hour`): captured in CHANGELOG for when the upstream RFC is eventually filed.
+
+### Notes for next milestone
+- M3.1 is a pure correctness-hardening release; M4 (F2 soft time windows) picks up where the M3 PROGRESS entry left off. No new prerequisites introduced.
+- Consumer integration for M3 still pending (delete `DispatchSharedPickupBatcher.php` and the peel-off loop); now safer to do because the step-timing invariant is enforced in CI.
