@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Fixed (Busportal fork — Dockerfile reproducibility, inbox #3)
+
+- `docker/Dockerfile` base image `bookworm-slim` → `trixie-slim` so the compiler is GCC 13+ (required by `std::format` in `routing/wrapper.h`). Bookworm ships GCC 12 and fails to build.
+- `VROOM_EXPRESS_VERSION` pin `v1.5.0` → `v0.12.0` — the former tag does not exist on `VROOM-Project/vroom-express`.
+- `npm install` for vroom-express now runs with `HUSKY=0` + `--ignore-scripts` to skip the husky `prepare` hook, which fails on a shallow clone with no `.git`.
+- `docker/entrypoint.sh` now **copies** `/conf/config.yml` into `/opt/vroom-express/config.yml` (vroom-express ignores `VROOM_CONFIG` and only reads its CWD-relative `./config.yml`; setting the env var alone silently fell back to upstream defaults).
+- `docker/entrypoint.sh` is stripped of Windows CRLF (`sed -i 's/\r$//'`) in the Dockerfile after `COPY`, plus a new `.gitattributes` forces LF for `*.sh`, so Windows checkouts with `core.autocrlf=true` no longer corrupt the shebang.
+- `chown -R vroom:vroom /opt/vroom-express` so the unprivileged runtime user can write `access.log`.
+
+All six fixes originated from the owner's L1 smoke test (real Valhalla backend, 484 ms solve on a 2-shipment Lviv problem) which verified M1's `summary.cost_breakdown` is populated correctly and the sum invariant holds against a live deployment.
+
 ### Added (Busportal fork — M2, F5 structured unassigned-reason diagnostics)
 
 - New CLI flag `-d` / `--diagnostics`. When present, every entry in `solution.unassigned` is annotated with a stable `reason` code and a `details` payload per RFC §4.5.

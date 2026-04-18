@@ -1,0 +1,5 @@
+# Keep shell scripts LF-terminated so Windows checkouts with
+# core.autocrlf=true don't break the shebang when we COPY them into
+# a Linux container image.
+*.sh text eol=lf
+docker/entrypoint.sh text eol=lf
