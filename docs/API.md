@@ -99,6 +99,7 @@ A `shipment_step` is similar to a `job` object (expect for shared keys already p
 | [`service_per_type`] | object mapping vehicle types to task service duration values |
 | [`time_windows`] | an array of `time_window` objects describing valid slots for task service start |
 | [`co_located_group`] | *pickup only, Busportal fork M3 / F1.* Non-empty string tagging the pickup as sharing a physical stop with others carrying the same tag. See below. |
+| [`soft_time_window`] | *Busportal fork M4 / F2.* Optional object with `preferred: [start, end]`, `cost_per_second_before`, `cost_per_second_after`. Biases the route toward arrivals inside `preferred`. See below. |
 
 An error is reported if two `delivery` (resp. `pickup`) objects have the same `id`.
 
@@ -145,6 +146,75 @@ to hold when M4 and M8 populate the other buckets.
 
 Absent or empty `co_located_group` leaves behavior identical to mainline
 VROOM.
+
+### `soft_time_window` (Busportal fork, M4)
+
+A `soft_time_window` on any `time_windows`-bearing step (pickup,
+delivery, job) lets the fork bias arrivals toward a preferred
+sub-interval of the hard window. It replaces the consumer-side
+`VroomClient::shiftRoutesLate` post-processor with native per-step
+behavior that composes correctly when one route has tight-TW passengers
+alongside flexible ones.
+
+```json
+"pickup": {
+  "id": 42,
+  "time_windows": [[140100, 140700]],
+  "soft_time_window": {
+    "preferred": [140400, 140500],
+    "cost_per_second_before": 0.1,
+    "cost_per_second_after": 0.5
+  }
+}
+```
+
+| Key | Type | Description |
+|---|---|---|
+| `preferred` | `[UserDuration, UserDuration]` | Closed interval, MUST be contained in at least one of the step's hard `time_windows`. Rejected with `code: 2` otherwise. |
+| `cost_per_second_before` | number ≥ 0 | Linear cost per second the final arrival lands before `preferred[0]`. |
+| `cost_per_second_after` | number ≥ 0 | Linear cost per second the final arrival lands after `preferred[1]`. |
+
+Semantics (RFC §4.2.3):
+
+```
+if arrival < preferred.start:
+  cost += cost_per_second_before × (preferred.start - arrival)
+elif arrival > preferred.end:
+  cost += cost_per_second_after  × (arrival - preferred.end)
+else:
+  cost += 0
+```
+
+Hard `time_windows` remain hard — the soft cost only biases arrivals
+inside the hard window. Absent or empty `soft_time_window` leaves
+behavior identical to mainline.
+
+#### Output additions
+
+- Each step with a soft TW gains a `soft_window_violation_cost` field
+  reporting its per-step contribution (zero when the final arrival is
+  inside the preferred interval).
+- Route- and summary-level `cost_breakdown.soft_time_window_violation`
+  sums those contributions (the placeholder from M1 is now populated).
+- Route-level `waiting_time` absorbs the post-solve delay the pass
+  introduces, so the upstream step-timing invariant
+  `arrival[k] - arrival[0] == duration[k] + cumulative(setup+service+waiting)<k`
+  continues to hold (asserted by `scripts/regression.sh`).
+
+#### Implementation notes
+
+- The M4 pass is post-solve: after the solver picks the route sequence,
+  the pass backward-computes each step's latest-feasible arrival (bounded
+  by its own hard TW, subsequent steps' hard TWs, vehicle TW, and travel
+  times), then walks forward targeting the preferred interval per soft-
+  TW step. Delay increments are attributed to the preceding step's
+  `waiting_time`.
+- The pass is a no-op when no step carries a `soft_time_window`.
+- Current scope is shift-late-only; the pass does NOT pull an arrival
+  earlier than the solver's chosen time. A step whose arrival lands
+  past `preferred.end` pays the `cost_per_second_after` penalty and is
+  not reshuffled. If UAT finds this too conservative, a future
+  milestone can add a bidirectional shift.
 
 ## Vehicles
 

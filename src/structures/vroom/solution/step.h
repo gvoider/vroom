@@ -39,6 +39,15 @@ struct Step {
   // to detect consecutive co-located runs and dedup their service.
   std::string co_located_group;
 
+  // Busportal fork, M4 / F2. Soft-TW hint copied from the originating
+  // Job. Empty / present=false ⇒ step is not soft-TW-sensitive.
+  SoftTimeWindow soft_time_window;
+
+  // Busportal fork, M4 / F2. Soft-TW violation cost at the final
+  // arrival (after any post-solve re-scheduling). Zero when the step
+  // has no soft TW or its arrival lands inside the preferred interval.
+  UserCost soft_window_violation_cost{0};
+
   Violations violations;
 
   Step(STEP_TYPE type, Location location, Amount load);

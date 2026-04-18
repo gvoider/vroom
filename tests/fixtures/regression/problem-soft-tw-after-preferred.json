@@ -1,0 +1,40 @@
+{
+  "_comment": "F2 after-preferred case: preferred [0, 500] at the start of hard TW [0, 5000]. Travel from vehicle start to pickup is 1000s, so earliest feasible arrival is 1000 (= 500 past preferred.end). The M4 pass does NOT pull earlier (design: shift-late only), so soft cost is cost_per_second_after * (arrival - preferred.end) = 0.5 * (1000 - 500) = 250.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [5],
+      "costs": {"per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 701,
+        "location_index": 1,
+        "service": 100,
+        "time_windows": [[0, 5000]],
+        "soft_time_window": {
+          "preferred": [0, 500],
+          "cost_per_second_before": 0,
+          "cost_per_second_after": 0.5
+        }
+      },
+      "delivery": {"id": 701, "location_index": 2, "service": 0},
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 1000, 1500],
+        [1000, 0, 400],
+        [1500, 400, 0]
+      ]
+    }
+  }
+}

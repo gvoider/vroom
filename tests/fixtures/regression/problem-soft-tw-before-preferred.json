@@ -1,0 +1,45 @@
+{
+  "_comment": "F2 before-preferred case: pickup hard TW [0, 4000] contains preferred [3000, 3500], but delivery's hard TW [1500, 2000] caps the route — latest-feasible pickup is 2000 - 400 (travel pickup->delivery) - 100 (pickup service) = 1500, still before preferred_start=3000. Pass shifts pickup to 1500 (as late as feasible), paying 1.0 * (3000 - 1500) = 1500 soft_cost_before.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [5],
+      "costs": {"per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 601,
+        "location_index": 1,
+        "service": 100,
+        "time_windows": [[0, 4000]],
+        "soft_time_window": {
+          "preferred": [3000, 3500],
+          "cost_per_second_before": 1.0,
+          "cost_per_second_after": 1.0
+        }
+      },
+      "delivery": {
+        "id": 601,
+        "location_index": 2,
+        "service": 0,
+        "time_windows": [[1500, 2000]]
+      },
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 500, 800],
+        [500, 0, 400],
+        [800, 400, 0]
+      ]
+    }
+  }
+}

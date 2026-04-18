@@ -456,6 +456,15 @@ rapidjson::Value to_json(const Step& s,
   json_step.AddMember("arrival", s.arrival, allocator);
   json_step.AddMember("duration", s.duration, allocator);
 
+  // Busportal fork, M4 / F2. Emit soft-TW violation only when the step
+  // actually carried a soft window, so mainline-compatible fixtures
+  // keep byte-identical output.
+  if (s.soft_time_window.present) {
+    json_step.AddMember("soft_window_violation_cost",
+                        s.soft_window_violation_cost,
+                        allocator);
+  }
+
   json_step.AddMember("violations",
                       get_violations(s.violations, allocator),
                       allocator);

@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Added (Busportal fork — M4, F2 soft time windows)
+
+- New optional `soft_time_window` object on pickup/delivery/job steps, with `preferred: [start, end]`, `cost_per_second_before`, `cost_per_second_after`. Empty/absent ⇒ mainline behavior. Validation rejects `preferred` not contained in any hard `time_window` with `code: 2`.
+- `vroom::SoftTimeWindow` struct at `src/structures/vroom/soft_time_window.{h,cpp}` with `violation_cost(arrival)` helper.
+- `Input::check_soft_time_windows()` enforces the containment invariant.
+- `utils::apply_soft_time_window_pass()` at `src/utils/soft_time_window_pass.{h,cpp}` — post-solve pass that backward-computes latest-feasible arrivals, walks forward shifting each soft-TW step as late as possible toward its preferred interval, and attributes the delay to the preceding step's `waiting_time` so the M3.1 step-timing invariant continues to hold.
+- Per-step `soft_window_violation_cost` in the solution JSON (emitted only on steps carrying a soft TW).
+- `cost_breakdown.soft_time_window_violation` (previously a zero placeholder since M1) is now populated; the M3.1 sum-equals-cost invariant keeps holding because the pass re-accumulates every breakdown bucket on summary.
+- Three new regression fixtures: `problem-soft-tw-shift-late.json` (happy path, pickup pushed into preferred), `problem-soft-tw-before-preferred.json` (downstream hard TW caps pickup below preferred_start; pays `cost_per_second_before`), `problem-soft-tw-after-preferred.json` (earliest feasible past `preferred_end`; pays `cost_per_second_after`).
+- New `tests/fixtures/validation/` directory with `problem-soft-tw-reject.json` — a manual-test fixture exercising the containment validator (regression script skips this dir because the solver is expected to fail with `code: 2`).
+- `scripts/gen-synthetic-30.py` + `tests/fixtures/regression/problem-synthetic-30.json` — deterministic 28-shipment synthetic fixture (20 regular + 5 co-located + 3 confirmed) with embedded matrices. Satisfies the non-blocking bench-coverage ask deferred from M3.1; solves in ~77 ms median / 93 ms p99 here, well under the 500 ms RFC budget.
+- `bench-baselines/bench-post-m4.csv` captures post-M4 solve times across every self-contained fixture.
+- `docs/API.md` — new `soft_time_window` subsection documenting schema, semantics, output additions, and scope.
+
+Implementation notes:
+- **Post-solve pass, not solver objective change.** The solver picks the route sequence using mainline cost (travel + task); M4's soft term only shifts arrivals post-solve. This meets the RFC's "Consumer deletes `VroomClient::shiftRoutesLate`" acceptance criterion without touching the local-search hot path (zero risk of solve-time regression).
+- **Shift-late only.** A step whose arrival is already past `preferred_end` pays `cost_per_second_after` and is not pulled earlier. If UAT finds this too conservative a future milestone can add bidirectional shift.
+- **Pickup / delivery id disambiguation fix.** `step_hard_tw_end()` picks the right job-id map based on `step.job_type` (pickup vs delivery share the shipment id, so a naive lookup returns the wrong Job's TW).
+- **Invariant preservation.** Delay increments are charged to the preceding step's `waiting_time`, matching VROOM's `previous_departure = prev.arrival + prev.setup + prev.service + prev.waiting` convention, so the M3.1 step-timing assertion in `scripts/regression.sh` continues to pass.
+
 ### Fixed (Busportal fork — M3 correctness follow-up, inbox #7)
 
 Four concrete defects in the M3 co-location dedup pass identified by an adversarial review. All fixed on `feat/m3-co-located-fixes` (tag `v1.15.0-busportal.m3.1`):
