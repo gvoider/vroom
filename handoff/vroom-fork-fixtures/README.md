@@ -66,3 +66,22 @@ Vehicles:
 - `costs.fixed: 100000` (strong bias to use fewer vehicles).
 - `capacity: [N, M]` from `maxPassengers` + `trunkVolumeLiters / 100`.
 - `time_window: [86400, 172800]` (00:00–23:59 today in synthetic-day-offset seconds).
+
+## Embedded-matrix fixtures (added 2026-04-18)
+
+The three `problem-embedded-shipments-*.json` files are drop-in replacements for the originals
+with one addition: every problem carries a full `matrices.auto.{durations, distances}` block
+computed from the **real production Valhalla backend** (172.16.144.55:8002) against the exact
+lat/lng set in each fixture. Vehicle `start_index`/`end_index` and every step's `location_index`
+are wired up.
+
+**Use these when your environment has no routing backend.** All three solve on the fork image
+with no Valhalla connection, in ≤ 500 ms, with the same `code: 0 / routes / unassigned` shape
+as the originals. Cost-breakdown invariant holds on every one.
+
+These are the intended benchmark inputs for the M3 "≤ 500 ms median on 30-shipment problems"
+acceptance gate, in combination with larger synthetic problems (the fork's `scripts/gen-synthetic.py`
+describes how to compose bigger cases on top of these coordinates).
+
+Round-trip to Valhalla was done once (this commit); future matrix regeneration should re-run
+the script in `ref/handoff/vroom-fork-fixtures-regen.py` in the `busportal1` consumer repo.
