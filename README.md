@@ -13,7 +13,8 @@ The code lives on `main`.
    environment facts (image tag, config, Valhalla, K8s contract).
 3. **[handoff/vroom-fork-glossary.md](handoff/vroom-fork-glossary.md)** — domain
    terms. Keep open in a tab while reading the RFC.
-4. **[handoff/vroom-fork-consumer-hooks.md](handoff/vroom-fork-consumer-hooks.md)** —
+4. **[handoff/AGENT-PROTOCOL.md](handoff/AGENT-PROTOCOL.md)** — how to receive directives from the project owner via GitHub Issues. READ FIRST. Then:
+5. **[handoff/vroom-fork-consumer-hooks.md](handoff/vroom-fork-consumer-hooks.md)** —
    exact files/lines in the downstream consumer (`backend-dispatch`) that change
    per milestone. Look at this when working on a specific milestone.
 5. **[handoff/vroom-fork-bench.md](handoff/vroom-fork-bench.md)** — benchmark
