@@ -56,6 +56,9 @@ int main(int argc, char** argv) {
     ("g,geometry",
      "add detailed route geometry and distance",
      cxxopts::value<bool>(cl_args.geometry)->default_value("false"))
+    ("d,diagnostics",
+     "emit structured unassigned[i].reason and details (Busportal fork, F5)",
+     cxxopts::value<bool>(cl_args.diagnostics)->default_value("false"))
     ("h,help", "display this help and exit")
     ("i,input",
      "read input from a file rather than from stdin",
@@ -197,7 +200,10 @@ int main(int argc, char** argv) {
     vroom::Input problem_instance(cl_args.servers,
                                   cl_args.router,
                                   cl_args.apply_TSPFix);
-    vroom::io::parse(problem_instance, cl_args.input, cl_args.geometry);
+    vroom::io::parse(problem_instance,
+                     cl_args.input,
+                     cl_args.geometry,
+                     cl_args.diagnostics);
 
     const vroom::Solution sol = (cl_args.check)
                                   ? problem_instance.check(cl_args.nb_threads)

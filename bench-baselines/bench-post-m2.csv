@@ -1,0 +1,7 @@
+fixture,shipments,jobs,vehicles,median_ms,p99_ms,cost,routes,unassigned,distance_m,duration_s
+problem-cost-breakdown,0,2,1,0,0,18200,1,0,23000,2700
+problem-custom-cost-matrix,0,2,1,0,1,28575,1,0,null,2700
+problem-example-2,0,2,1,3,6,5461,1,0,null,5461
+problem-unassigned-capacity,0,1,1,7,9,0,0,1,null,0
+problem-unassigned-skills,0,1,1,7,8,0,0,1,null,0
+problem-unassigned-tw,0,1,1,7,9,0,0,1,null,0

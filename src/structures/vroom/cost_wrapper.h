@@ -54,6 +54,14 @@ public:
     return _cost_based_on_metrics;
   }
 
+  Cost per_hour() const {
+    return _per_hour;
+  }
+
+  Cost per_km() const {
+    return _per_km;
+  }
+
   bool has_same_variable_costs(const CostWrapper& other) const {
     return (this->discrete_duration_cost_factor ==
             other.discrete_duration_cost_factor) &&

@@ -2,6 +2,53 @@
 
 ## Unreleased
 
+### Fixed (Busportal fork — Dockerfile reproducibility, inbox #3)
+
+- `docker/Dockerfile` base image `bookworm-slim` → `trixie-slim` so the compiler is GCC 13+ (required by `std::format` in `routing/wrapper.h`). Bookworm ships GCC 12 and fails to build.
+- `VROOM_EXPRESS_VERSION` pin `v1.5.0` → `v0.12.0` — the former tag does not exist on `VROOM-Project/vroom-express`.
+- `npm install` for vroom-express now runs with `HUSKY=0` + `--ignore-scripts` to skip the husky `prepare` hook, which fails on a shallow clone with no `.git`.
+- `docker/entrypoint.sh` now **copies** `/conf/config.yml` into `/opt/vroom-express/config.yml` (vroom-express ignores `VROOM_CONFIG` and only reads its CWD-relative `./config.yml`; setting the env var alone silently fell back to upstream defaults).
+- `docker/entrypoint.sh` is stripped of Windows CRLF (`sed -i 's/\r$//'`) in the Dockerfile after `COPY`, plus a new `.gitattributes` forces LF for `*.sh`, so Windows checkouts with `core.autocrlf=true` no longer corrupt the shebang.
+- `chown -R vroom:vroom /opt/vroom-express` so the unprivileged runtime user can write `access.log`.
+
+All six fixes originated from the owner's L1 smoke test (real Valhalla backend, 484 ms solve on a 2-shipment Lviv problem) which verified M1's `summary.cost_breakdown` is populated correctly and the sum invariant holds against a live deployment.
+
+### Added (Busportal fork — M2, F5 structured unassigned-reason diagnostics)
+
+- New CLI flag `-d` / `--diagnostics`. When present, every entry in `solution.unassigned` is annotated with a stable `reason` code and a `details` payload per RFC §4.5.
+- Reason codes (stable strings): `no_vehicle_with_required_skills`, `capacity_exceeded`, `time_window_infeasible`, `max_travel_time_exceeded`, `route_duration_limit_exceeded`, `no_feasible_insertion`.
+- `vroom::UnassignedReason` enum and `vroom::UnassignedInfo` / `UnassignedDetails` structs at `src/structures/vroom/solution/unassigned_info.h`.
+- `utils::classify_unassigned()` at `src/utils/unassigned_classifier.{h,cpp}` — runs after `format_solution` when diagnostics is on.
+- `Input::set_diagnostics(bool)` + `Input::diagnostics()` accessor.
+- `to_json(const UnassignedDetails&, ...)` overload in `src/utils/output_json.{h,cpp}`; existing `unassigned[]` shape extended additively with `reason` and `details` fields only when diagnostics is on.
+- `scripts/regression.sh` now supports an optional `diagnostics/<label>.json` expectation file per fixture. When present, re-runs with `-d` and asserts the `reason` code per `unassigned[].id` matches.
+- Three new regression fixtures — `problem-unassigned-capacity.json`, `problem-unassigned-skills.json`, `problem-unassigned-tw.json` — plus their `diagnostics/*.json` expectations, each exercising a distinct reason code.
+- `docs/API.md` — new "Unassigned reasons" subsection documenting the flag, codes, and per-code `details` payload.
+
+Backwards compatibility: without `-d`, `unassigned[]` shape is byte-identical to mainline VROOM. Consumers opt in per-request.
+
+### Added (Busportal fork — M1, F3 per-objective cost breakdown)
+
+- `summary.cost_breakdown` and `routes[].cost_breakdown` in the solution JSON. Each breakdown exposes `fixed_vehicle`, `duration`, `distance`, `task`, `priority_bias`, `soft_time_window_violation`, and `published_vehicle_deviation` in the fork's integer cost unit. Sum equals `cost` within ≤1 unit of rounding drift per route.
+- `vroom::CostBreakdown` struct at `src/structures/vroom/solution/cost_breakdown.h`; additive via `operator+=`.
+- `utils::compute_route_cost_breakdown()` helper wired at the three `Route`-construction sites (`src/utils/helpers.cpp` CVRP + VRPTW paths; `src/algorithms/validation/choose_ETA.cpp`).
+- `CostWrapper::per_hour()` / `per_km()` accessors so the breakdown can split the travel cost using the same formula as `user_cost_from_user_metrics`.
+- `to_json(const CostBreakdown&, ...)` overload in `src/utils/output_json.{h,cpp}` emitting the new shape.
+- `tests/fixtures/regression/problem-cost-breakdown.json` + `solution-cost-breakdown.json` — a self-contained fixture exercising non-zero buckets.
+- `scripts/regression.sh` now asserts the breakdown sum invariant (fails CI when drift > 1 unit).
+- `docs/API.md` — new "Cost breakdown" subsection documenting semantics, invariants, and the forward-looking keys.
+
+Backwards compatibility: the three forward-looking keys are emitted as zero so consumers can adopt the field shape once and let later milestones populate the values.
+
+### Added (Busportal fork — M0 scaffolding)
+
+- `scripts/bench.sh` — per-fixture solve-time harness (median / p99 over N runs, CSV output). See `handoff/vroom-fork-bench.md` on the `handoff/initial-briefing` branch.
+- `scripts/regression.sh` — compares fork solutions against recorded `solution-*.json` cost/routes/unassigned. Exits non-zero on drift.
+- `tests/fixtures/regression/` — self-contained problem/solution pair (from upstream `docs/example_2.json`) used by the CI regression job; no router required.
+- `docker/Dockerfile` + `docker/entrypoint.sh` — two-stage image bundling the fork binary with `vroom-express`. Listens on `:3000`, mounts `/conf/config.yml` if present.
+- `.github/workflows/fork-ci.yml` — runs regression + bench on every fork push / PR.
+- `.github/workflows/docker-image.yml` — builds and pushes to `registry.gitlab.itnet.lviv.ua/busportal/backend/vroom-fork` on master / tag; builds-only when registry secrets are absent.
+
 ### Fixed
 
 #### Internals

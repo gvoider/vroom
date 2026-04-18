@@ -84,7 +84,11 @@ rapidjson::Document to_json(const Solution& sol, bool report_distances) {
                         allocator);
 
   rapidjson::Value json_unassigned(rapidjson::kArrayType);
-  for (const auto& job : sol.unassigned) {
+  const bool has_info =
+    !sol.unassigned_info.empty() &&
+    sol.unassigned_info.size() == sol.unassigned.size();
+  for (std::size_t u = 0; u < sol.unassigned.size(); ++u) {
+    const auto& job = sol.unassigned[u];
     rapidjson::Value json_job(rapidjson::kObjectType);
     json_job.AddMember("id", job.id, allocator);
     if (job.location.has_coordinates()) {
@@ -118,6 +122,17 @@ rapidjson::Document to_json(const Solution& sol, bool report_distances) {
                                         allocator);
     }
 
+    if (has_info) {
+      const auto& info = sol.unassigned_info[u];
+      rapidjson::Value reason_value;
+      const auto reason_str = to_string(info.reason);
+      reason_value.SetString(reason_str.c_str(), reason_str.size(), allocator);
+      json_job.AddMember("reason", reason_value, allocator);
+      json_job.AddMember("details",
+                         to_json(info.details, allocator),
+                         allocator);
+    }
+
     json_unassigned.PushBack(json_job, allocator);
   }
 
@@ -146,12 +161,90 @@ rapidjson::Document to_json(const vroom::Exception& e) {
   return json_output;
 }
 
+rapidjson::Value to_json(const UnassignedDetails& d,
+                         rapidjson::Document::AllocatorType& allocator) {
+  rapidjson::Value json_d(rapidjson::kObjectType);
+  if (d.required_skills.has_value()) {
+    rapidjson::Value arr(rapidjson::kArrayType);
+    for (auto s : *d.required_skills) {
+      arr.PushBack(s, allocator);
+    }
+    json_d.AddMember("required_skills", arr, allocator);
+  }
+  if (d.vehicles_missing_skills.has_value()) {
+    rapidjson::Value arr(rapidjson::kArrayType);
+    for (auto id : *d.vehicles_missing_skills) {
+      arr.PushBack(id, allocator);
+    }
+    json_d.AddMember("vehicles_missing_skills", arr, allocator);
+  }
+  if (d.earliest.has_value()) {
+    json_d.AddMember("earliest", *d.earliest, allocator);
+  }
+  if (d.latest.has_value()) {
+    json_d.AddMember("latest", *d.latest, allocator);
+  }
+  if (d.closest_feasible_vehicle.has_value()) {
+    json_d.AddMember("closest_feasible_vehicle",
+                     *d.closest_feasible_vehicle,
+                     allocator);
+  }
+  if (d.closest_feasible_arrival.has_value()) {
+    json_d.AddMember("closest_feasible_arrival",
+                     *d.closest_feasible_arrival,
+                     allocator);
+  }
+  if (d.shortfall_seconds.has_value()) {
+    json_d.AddMember("shortfall_seconds", *d.shortfall_seconds, allocator);
+  }
+  if (d.capacity_dimension.has_value()) {
+    json_d.AddMember("capacity_dimension", *d.capacity_dimension, allocator);
+  }
+  if (d.required_capacity.has_value()) {
+    json_d.AddMember("required_capacity", *d.required_capacity, allocator);
+  }
+  if (d.max_available_capacity.has_value()) {
+    json_d.AddMember("max_available_capacity",
+                     *d.max_available_capacity,
+                     allocator);
+  }
+  if (d.max_allowed_seconds.has_value()) {
+    json_d.AddMember("max_allowed_seconds", *d.max_allowed_seconds, allocator);
+  }
+  if (d.would_require_seconds.has_value()) {
+    json_d.AddMember("would_require_seconds",
+                     *d.would_require_seconds,
+                     allocator);
+  }
+  return json_d;
+}
+
+rapidjson::Value to_json(const CostBreakdown& breakdown,
+                         rapidjson::Document::AllocatorType& allocator) {
+  rapidjson::Value json_breakdown(rapidjson::kObjectType);
+  json_breakdown.AddMember("fixed_vehicle", breakdown.fixed_vehicle, allocator);
+  json_breakdown.AddMember("duration", breakdown.duration, allocator);
+  json_breakdown.AddMember("distance", breakdown.distance, allocator);
+  json_breakdown.AddMember("task", breakdown.task, allocator);
+  json_breakdown.AddMember("priority_bias", breakdown.priority_bias, allocator);
+  json_breakdown.AddMember("soft_time_window_violation",
+                           breakdown.soft_time_window_violation,
+                           allocator);
+  json_breakdown.AddMember("published_vehicle_deviation",
+                           breakdown.published_vehicle_deviation,
+                           allocator);
+  return json_breakdown;
+}
+
 rapidjson::Value to_json(const Summary& summary,
                          bool report_distances,
                          rapidjson::Document::AllocatorType& allocator) {
   rapidjson::Value json_summary(rapidjson::kObjectType);
 
   json_summary.AddMember("cost", summary.cost, allocator);
+  json_summary.AddMember("cost_breakdown",
+                         to_json(summary.cost_breakdown, allocator),
+                         allocator);
   json_summary.AddMember("routes", summary.routes, allocator);
   json_summary.AddMember("unassigned", summary.unassigned, allocator);
 
@@ -206,6 +299,9 @@ rapidjson::Value to_json(const Route& route,
 
   json_route.AddMember("vehicle", route.vehicle, allocator);
   json_route.AddMember("cost", route.cost, allocator);
+  json_route.AddMember("cost_breakdown",
+                       to_json(route.cost_breakdown, allocator),
+                       allocator);
 
   if (!route.description.empty()) {
     json_route.AddMember("description", rapidjson::Value(), allocator);

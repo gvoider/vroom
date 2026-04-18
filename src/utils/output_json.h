@@ -35,6 +35,12 @@ rapidjson::Value to_json(const Step& s,
                          bool report_distances,
                          rapidjson::Document::AllocatorType& allocator);
 
+rapidjson::Value to_json(const CostBreakdown& breakdown,
+                         rapidjson::Document::AllocatorType& allocator);
+
+rapidjson::Value to_json(const UnassignedDetails& details,
+                         rapidjson::Document::AllocatorType& allocator);
+
 rapidjson::Value to_json(const Location& loc,
                          rapidjson::Document::AllocatorType& allocator);
 

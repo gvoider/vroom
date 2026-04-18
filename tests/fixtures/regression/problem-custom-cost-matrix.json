@@ -1,0 +1,29 @@
+{
+  "vehicles": [
+    {
+      "id": 0,
+      "start_index": 0,
+      "end_index": 0,
+      "profile": "car",
+      "costs": {"fixed": 500, "per_task_hour": 1800}
+    }
+  ],
+  "jobs": [
+    {"id": 1, "location_index": 1, "service": 300},
+    {"id": 2, "location_index": 2, "service": 300}
+  ],
+  "matrices": {
+    "car": {
+      "durations": [
+        [0, 600, 1200],
+        [600, 0, 900],
+        [1200, 900, 0]
+      ],
+      "costs": [
+        [0, 9999, 9999],
+        [9999, 0, 7777],
+        [9999, 7777, 0]
+      ]
+    }
+  }
+}

@@ -1,0 +1,2 @@
+fixture,shipments,jobs,vehicles,median_ms,p99_ms,cost,routes,unassigned,distance_m,duration_s
+problem-example-2,0,2,1,4,8,5461,1,0,null,5461

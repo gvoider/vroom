@@ -1476,20 +1476,27 @@ Route choose_ETA(const Input& input,
   const UserCost user_task_cost =
     utils::scale_to_user_cost(v.task_cost(setup + service));
 
-  return Route(v.id,
-               std::move(sol_steps),
-               user_fixed_cost + user_travel_cost + user_task_cost,
-               user_duration,
-               eval_sum.distance,
-               utils::scale_to_user_duration(setup),
-               utils::scale_to_user_duration(service),
-               user_waiting_time,
-               priority,
-               sum_deliveries,
-               sum_pickups,
-               v.profile,
-               v.description,
-               Violations(user_lead_time, user_delay, std::move(v_types)));
+  Route route(v.id,
+              std::move(sol_steps),
+              user_fixed_cost + user_travel_cost + user_task_cost,
+              user_duration,
+              eval_sum.distance,
+              utils::scale_to_user_duration(setup),
+              utils::scale_to_user_duration(service),
+              user_waiting_time,
+              priority,
+              sum_deliveries,
+              sum_pickups,
+              v.profile,
+              v.description,
+              Violations(user_lead_time, user_delay, std::move(v_types)));
+  route.cost_breakdown =
+    utils::compute_route_cost_breakdown(v,
+                                        user_duration,
+                                        eval_sum.distance,
+                                        setup + service,
+                                        user_travel_cost);
+  return route;
 }
 
 } // namespace vroom::validation

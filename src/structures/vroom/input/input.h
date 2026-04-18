@@ -53,6 +53,7 @@ private:
   bool _homogeneous_profiles{true};
   bool _homogeneous_costs{true};
   bool _geometry{false};
+  bool _diagnostics{false};
   bool _report_distances;
   bool _has_jobs{false};
   bool _has_shipments{false};
@@ -145,6 +146,12 @@ public:
   }
 
   void set_geometry(bool geometry);
+
+  void set_diagnostics(bool diagnostics);
+
+  bool diagnostics() const {
+    return _diagnostics;
+  }
 
   void add_job(const Job& job);
 

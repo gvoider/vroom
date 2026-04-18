@@ -12,6 +12,7 @@ All rights reserved (see LICENSE).
 
 #include <string>
 
+#include "structures/vroom/solution/cost_breakdown.h"
 #include "structures/vroom/solution/step.h"
 #include "structures/vroom/solution/violations.h"
 
@@ -21,6 +22,7 @@ struct Route {
   Id vehicle;
   std::vector<Step> steps;
   UserCost cost;
+  CostBreakdown cost_breakdown;
   UserDuration duration;
   UserDistance distance;
   UserDuration setup;

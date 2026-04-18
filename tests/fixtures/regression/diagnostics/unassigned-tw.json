@@ -1,0 +1,5 @@
+{
+  "unassigned": [
+    {"id": 42, "reason": "time_window_infeasible"}
+  ]
+}

@@ -13,6 +13,7 @@ All rights reserved (see LICENSE).
 #include <sstream>
 
 #include "utils/helpers.h"
+#include "utils/unassigned_classifier.h"
 
 namespace vroom::utils {
 
@@ -81,6 +82,40 @@ Eval route_eval_for_vehicle(const Input& input,
   }
 
   return eval;
+}
+
+CostBreakdown
+compute_route_cost_breakdown(const Vehicle& v,
+                             UserDuration user_duration,
+                             UserDistance user_distance,
+                             Duration task_duration_internal,
+                             UserCost travel_cost_fallback) {
+  CostBreakdown bd;
+  bd.fixed_vehicle = scale_to_user_cost(v.fixed_cost());
+
+  if (v.cost_based_on_metrics()) {
+    constexpr double SECONDS_PER_HOUR = 3600.0;
+    constexpr double M_PER_KM = 1000.0;
+    bd.duration =
+      round<UserCost>(static_cast<double>(user_duration) *
+                      static_cast<double>(v.cost_wrapper.per_hour()) /
+                      SECONDS_PER_HOUR);
+    bd.distance =
+      round<UserCost>(static_cast<double>(user_distance) *
+                      static_cast<double>(v.cost_wrapper.per_km()) /
+                      M_PER_KM);
+  } else {
+    // User-provided cost matrix: travel cost is a scalar and duration /
+    // distance attribution isn't meaningful. Park the full travel cost
+    // in the duration bucket to keep the sum invariant while surfacing
+    // the vehicle-fixed and task components separately.
+    bd.duration = travel_cost_fallback;
+    bd.distance = 0;
+  }
+
+  bd.task = scale_to_user_cost(v.task_cost(task_duration_internal));
+
+  return bd;
 }
 
 #ifndef NDEBUG
@@ -303,10 +338,11 @@ Solution format_solution(const Input& input, const RawSolution& raw_routes) {
     const UserCost user_task_cost =
       scale_to_user_cost(v.task_cost(setup + service));
 
+    const auto user_route_duration = scale_to_user_duration(eval_sum.duration);
     routes.emplace_back(v.id,
                         std::move(steps),
                         user_fixed_cost + user_travel_cost + user_task_cost,
-                        scale_to_user_duration(eval_sum.duration),
+                        user_route_duration,
                         eval_sum.distance,
                         scale_to_user_duration(setup),
                         scale_to_user_duration(service),
@@ -316,11 +352,20 @@ Solution format_solution(const Input& input, const RawSolution& raw_routes) {
                         sum_pickups,
                         v.profile,
                         v.description);
+    routes.back().cost_breakdown =
+      compute_route_cost_breakdown(v,
+                                   user_route_duration,
+                                   eval_sum.distance,
+                                   setup + service,
+                                   user_travel_cost);
   }
 
-  return Solution(input.zero_amount(),
-                  std::move(routes),
-                  get_unassigned_jobs_from_ranks(input, unassigned_ranks));
+  auto unassigned = get_unassigned_jobs_from_ranks(input, unassigned_ranks);
+  Solution sol(input.zero_amount(), std::move(routes), std::move(unassigned));
+  if (input.diagnostics()) {
+    sol.unassigned_info = classify_unassigned(input, sol.unassigned);
+  }
+  return sol;
 }
 
 Route format_route(const Input& input,
@@ -794,19 +839,26 @@ Route format_route(const Input& input,
   const UserCost user_task_cost =
     scale_to_user_cost(v.task_cost(setup + service));
 
-  return Route(v.id,
-               std::move(steps),
-               user_fixed_cost + user_travel_cost + user_task_cost,
-               user_duration,
-               eval_sum.distance,
-               scale_to_user_duration(setup),
-               scale_to_user_duration(service),
-               user_waiting_time,
-               priority,
-               sum_deliveries,
-               sum_pickups,
-               v.profile,
-               v.description);
+  Route route(v.id,
+              std::move(steps),
+              user_fixed_cost + user_travel_cost + user_task_cost,
+              user_duration,
+              eval_sum.distance,
+              scale_to_user_duration(setup),
+              scale_to_user_duration(service),
+              user_waiting_time,
+              priority,
+              sum_deliveries,
+              sum_pickups,
+              v.profile,
+              v.description);
+  route.cost_breakdown =
+    compute_route_cost_breakdown(v,
+                                 user_duration,
+                                 eval_sum.distance,
+                                 setup + service,
+                                 user_travel_cost);
+  return route;
 }
 
 Solution format_solution(const Input& input, const TWSolution& tw_routes) {
@@ -825,9 +877,12 @@ Solution format_solution(const Input& input, const TWSolution& tw_routes) {
     }
   }
 
-  return Solution(input.zero_amount(),
-                  std::move(routes),
-                  get_unassigned_jobs_from_ranks(input, unassigned_ranks));
+  auto unassigned = get_unassigned_jobs_from_ranks(input, unassigned_ranks);
+  Solution sol(input.zero_amount(), std::move(routes), std::move(unassigned));
+  if (input.diagnostics()) {
+    sol.unassigned_info = classify_unassigned(input, sol.unassigned);
+  }
+  return sol;
 }
 
 } // namespace vroom::utils
