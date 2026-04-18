@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Added (Busportal fork — M5, F4 plan diff endpoint)
+
+- New CLI mode `bin/vroom --diff-before BEFORE.json --diff-after AFTER.json` bypasses the solve pipeline entirely, reads two VROOM solution JSONs, and emits a structured diff matching RFC §4.4. Exits 0 on success; non-zero on malformed input.
+- `vroom::io::compute_plan_diff()` library function at `src/utils/plan_diff.{h,cpp}`. Returns a `PlanDiff` struct with `shipment_diffs`, `route_diffs`, `summary_diff`.
+- Shipment-diff classifier covers all seven RFC-defined states: `unchanged`, `time_changed` (same vehicle, arrival delta > 60 s), `moved_vehicle`, `assigned_to_unassigned`, `unassigned_to_assigned`, `added_to_problem`, `removed_from_problem`.
+- `total_unassigned_change` counts distinct shipments (not raw `unassigned[]` entries, which double-count pickup+delivery pairs).
+- Two diff fixture triples in `tests/fixtures/diff/`: `move-and-time` (covers the four same-shipment diff types) and `added-removed` (covers the added/removed-from-problem types).
+- `scripts/test-diff.sh` — asserts each diff fixture's output matches its recorded expected via `jq -S` canonical compare. Wired into `.github/workflows/fork-ci.yml`.
+- `docs/API.md` — new "Plan diff" section documenting CLI mode, HTTP mode (vroom-express routing, separate PR), response shape, and each shipment-diff type.
+
+Design notes:
+- **The CLI is the unit of shipping here.** The HTTP `POST /diff` endpoint the consumer eventually calls is a vroom-express concern — the upstream repo needs a small PR to shell out to `vroom --diff-before X --diff-after Y` per request. Out of scope for the fork PR.
+- No solve pipeline interaction. Zero risk of regressing mainline behavior; the diff path short-circuits before any `Input` construction.
+- Runs well under RFC §4.4.4's 50 ms acceptance on the diff fixtures (pure JSON parsing + hashmap lookups).
+
 ### Added (Busportal fork — M4, F2 soft time windows)
 
 - New optional `soft_time_window` object on pickup/delivery/job steps, with `preferred: [start, end]`, `cost_per_second_before`, `cost_per_second_after`. Empty/absent ⇒ mainline behavior. Validation rejects `preferred` not contained in any hard `time_window` with `code: 2`.

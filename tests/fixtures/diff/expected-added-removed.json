@@ -1,0 +1,34 @@
+{
+    "shipment_diffs": [
+        {
+            "shipment_id": 777,
+            "type": "removed_from_problem",
+            "before": {
+                "vehicle_id": 1,
+                "arrival": 100
+            }
+        },
+        {
+            "shipment_id": 888,
+            "type": "added_to_problem",
+            "after": {
+                "vehicle_id": 1,
+                "arrival": 100
+            }
+        }
+    ],
+    "route_diffs": [
+        {
+            "vehicle_id": 1,
+            "distance_change_m": 1500,
+            "duration_change_seconds": 500,
+            "shipment_count_change": 0,
+            "cost_change": 500
+        }
+    ],
+    "summary_diff": {
+        "total_cost_change": 500,
+        "total_distance_change_m": 0,
+        "total_unassigned_change": 0
+    }
+}

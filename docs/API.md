@@ -216,6 +216,88 @@ behavior identical to mainline.
   not reshuffled. If UAT finds this too conservative, a future
   milestone can add a bidirectional shift.
 
+## Plan diff (Busportal fork, M5 / F4)
+
+The fork ships a plan-diff utility that takes two solution JSONs and
+emits a structured diff matching RFC §4.4 — built to drive the
+dispatcher's `Rebalance` UI without re-reading the whole plan.
+
+### CLI mode
+
+```bash
+bin/vroom --diff-before path/to/before.json \
+          --diff-after  path/to/after.json
+```
+
+Reads the two files, computes the diff, and emits JSON on stdout (or
+to `--output` if provided). Both flags are required together; either
+alone returns an input error. The normal solve pipeline is bypassed
+entirely — no `Input` build, no solver, no matrix fetch.
+
+### HTTP mode (vroom-express routing)
+
+`POST /diff` with body `{"before": <solution>, "after": <solution>}`
+returns the diff. The HTTP wrapping lives in `vroom-express` (the
+separate upstream repo); the fork exposes the C++ utility via the CLI
+so `vroom-express` can shell out per request. Consumer-side
+integration is a separate PR on `VROOM-Project/vroom-express`.
+
+### Response shape
+
+```json
+{
+  "shipment_diffs": [
+    {"shipment_id": 42, "type": "moved_vehicle",
+     "before": {"vehicle_id": 3, "arrival": 140100},
+     "after":  {"vehicle_id": 5, "arrival": 140700}},
+    {"shipment_id": 51, "type": "time_changed",
+     "before": {"vehicle_id": 3, "arrival": 130000},
+     "after":  {"vehicle_id": 3, "arrival": 130500}},
+    {"shipment_id": 66, "type": "assigned_to_unassigned",
+     "before": {"vehicle_id": 3, "arrival": 140000}},
+    {"shipment_id": 99, "type": "unassigned_to_assigned",
+     "after": {"vehicle_id": 4, "arrival": 150000}},
+    {"shipment_id": 100, "type": "unchanged"},
+    {"shipment_id": 777, "type": "removed_from_problem"},
+    {"shipment_id": 888, "type": "added_to_problem",
+     "after": {"vehicle_id": 1, "arrival": 100}}
+  ],
+  "route_diffs": [
+    {"vehicle_id": 3,
+     "distance_change_m": -2300,
+     "duration_change_seconds": -240,
+     "shipment_count_change": -1,
+     "cost_change": -450}
+  ],
+  "summary_diff": {
+    "total_cost_change":         -450,
+    "total_distance_change_m":   -2300,
+    "total_unassigned_change":   -1
+  }
+}
+```
+
+### Shipment-diff types
+
+| `type` | When |
+|---|---|
+| `unchanged` | Same vehicle in both, arrival delta ≤ 60 s; or unassigned in both. |
+| `time_changed` | Same vehicle, arrival delta > 60 s. |
+| `moved_vehicle` | Different vehicle in before vs after. |
+| `assigned_to_unassigned` | Was on a route, now in `unassigned`. |
+| `unassigned_to_assigned` | Was in `unassigned`, now on a route. |
+| `added_to_problem` | Not present in `before` at all. |
+| `removed_from_problem` | Not present in `after` at all. |
+
+Time-change threshold is 60 seconds (RFC §4.4.3).
+
+### Unassigned counting
+
+`total_unassigned_change` counts DISTINCT shipments, not raw `unassigned[]`
+entries. A shipment contributes both a pickup and a delivery entry to
+the array; the diff treats the pickup (or single-job) side as canonical
+and skips deliveries to avoid double-counting.
+
 ## Vehicles
 
 A `vehicle` object has the following properties:

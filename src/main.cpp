@@ -22,6 +22,7 @@ All rights reserved (see LICENSE).
 #include "utils/helpers.h"
 #include "utils/input_parser.h"
 #include "utils/output_json.h"
+#include "utils/plan_diff.h"
 #include "utils/version.h"
 
 int main(int argc, char** argv) {
@@ -59,6 +60,12 @@ int main(int argc, char** argv) {
     ("d,diagnostics",
      "emit structured unassigned[i].reason and details (Busportal fork, F5)",
      cxxopts::value<bool>(cl_args.diagnostics)->default_value("false"))
+    ("diff-before",
+     "plan-diff mode: `before` solution JSON file (Busportal fork, M5 / F4)",
+     cxxopts::value<std::string>(cl_args.diff_before)->default_value(""))
+    ("diff-after",
+     "plan-diff mode: `after` solution JSON file (Busportal fork, M5 / F4)",
+     cxxopts::value<std::string>(cl_args.diff_after)->default_value(""))
     ("h,help", "display this help and exit")
     ("i,input",
      "read input from a file rather than from stdin",
@@ -154,6 +161,48 @@ int main(int argc, char** argv) {
   }
   exploration_level = std::min(exploration_level, vroom::MAX_EXPLORATION_LEVEL);
   cl_args.set_exploration_level(exploration_level);
+
+  // Busportal fork, M5 / F4. Plan-diff short-circuit mode: when the
+  // user provides `--diff-before` + `--diff-after` we bypass the
+  // normal solve pipeline entirely, parse both solution JSONs, emit
+  // the diff, and exit. Regressions on the normal path are impossible
+  // by construction — no `Input`, no solver.
+  if (!cl_args.diff_before.empty() || !cl_args.diff_after.empty()) {
+    if (cl_args.diff_before.empty() || cl_args.diff_after.empty()) {
+      const auto exc = vroom::InputException(
+        "--diff-before and --diff-after must be provided together.");
+      std::cerr << "[Error] " << exc.message << std::endl;
+      vroom::io::write_to_json(exc, cl_args.output_file);
+      exit(exc.error_code);
+    }
+    try {
+      auto read_json =
+        [&cl_args](const std::string& path) -> rapidjson::Document {
+        const std::ifstream ifs(path);
+        if (!ifs) {
+          throw vroom::InputException("Can't read file: " + path);
+        }
+        std::stringstream buf;
+        buf << ifs.rdbuf();
+        const std::string content = buf.str();
+
+        rapidjson::Document doc;
+        if (doc.Parse(content.c_str()).HasParseError()) {
+          throw vroom::InputException("Invalid JSON in file: " + path);
+        }
+        return doc;
+      };
+      const auto before = read_json(cl_args.diff_before);
+      const auto after = read_json(cl_args.diff_after);
+      const auto diff = vroom::io::compute_plan_diff(before, after);
+      vroom::io::write_plan_diff(diff, cl_args.output_file);
+      exit(0);
+    } catch (const vroom::Exception& exc) {
+      std::cerr << "[Error] " << exc.message << std::endl;
+      vroom::io::write_to_json(exc, cl_args.output_file);
+      exit(exc.error_code);
+    }
+  }
 
   // Determine routing engine (defaults to ROUTER::OSRM).
   if (router_arg == "libosrm") {
