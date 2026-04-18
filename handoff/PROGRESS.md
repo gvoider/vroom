@@ -209,3 +209,82 @@ Classifier overhead is bounded by `O(|unassigned| × |vehicles|)` matrix lookups
 **Summary**: Applied all six fixes from cyril's L1-smoke-test report verbatim. (1) base image bookworm-slim → trixie-slim for GCC 13+ (std::format); (2) VROOM_EXPRESS_VERSION v1.5.0 → v0.12.0 (real tag); (3) HUSKY=0 + --ignore-scripts on npm install; (4) new `.gitattributes` + `sed -i 's/\r$//'` belt-and-braces for CRLF-safe shebangs; (5) chown /opt/vroom-express to the unprivileged vroom user; (6) entrypoint now copies `/conf/config.yml` to `/opt/vroom-express/config.yml` (Option A) because vroom-express ignores `VROOM_CONFIG`. CHANGELOG.md Unreleased section documents all six under "Fixed". Sandbox has no Docker daemon so end-to-end build wasn't re-verified; CI's docker-image.yml is the first real integration surface.
 
 **Blocker (for both #2 and #3)**: the fine-grained PAT in the harness has Contents: Read+Write but no Issues: R+W and no Pull requests: R+W. Every non-git-push write to the GitHub API returns `Resource not accessible`. Adding those two scopes lets future sessions open PRs and close inbox issues directly per `handoff/AGENT-PROTOCOL.md` rule 4. Until then I can push branches and commits but the owner owns the PR open/close/comment steps.
+
+---
+
+## Milestone M3 — F1 native co-located shared-stop batching — 2026-04-18
+
+**Status**: complete, merged, tagged
+**Commits**: `feat/m3-co-located` → `master` via PR #6, merge commit `73cbeee6`. Tag `v1.15.0-busportal.m3` points at the same commit.
+**Upstream issue/PR**: not opened (fine-grained PAT still can't target `VROOM-Project/vroom`). Owner action if/when an upstream PR is desired.
+
+### What shipped
+- `Job` and `Step` gain an optional `co_located_group` string. Empty / absent = mainline behavior.
+- `Input::check_co_located_groups()` validates "same non-empty tag ⇒ same location within ~1.1 m" and rejects mismatches with `code: 2`.
+- `utils::apply_co_location_dedup()` (new file `src/utils/co_location_dedup.{h,cpp}`) runs as a post-solve accounting pass:
+  - For each route, scans for maximal consecutive runs of pickup steps sharing the tag.
+  - Equalizes arrival times across the run, keeps `max(service)` on the first member, zeros the rest, reduces `route.service`, `route.cost`, and `route.cost_breakdown.task` by the saving.
+  - Aggregates across routes into `summary.computing_times.co_location_savings_seconds` (named `_seconds` because the rest of `computing_times` is milliseconds — intentional).
+- Input parser reads `pickup.co_located_group` and threads it into the `Job` constructor.
+- Step JSON emission unchanged externally (no new output-only field — the tag is input-only from the consumer's perspective; the behavior shows up as equalized `arrival` and zeroed `service` on later members).
+- Two new self-contained regression fixtures:
+  - `problem-co-located-group.json` — 3 pickups at stop A + 1 at stop B on one vehicle; saving = 420 s from `max(300,240,180)` dedup.
+  - `problem-co-located-split.json` — capacity forces `pu-pu-del-del-pu-pu-del-del`; per-run dedup; saving = 360 s.
+- Three `problem-embedded-shipments-N` fixtures staged from `handoff/vroom-fork-fixtures/` so CI has real-Lviv-matrix regression coverage offline. Matching solutions recorded.
+- `docs/API.md` — new `co_located_group` subsection under the shipment-step table.
+- `CHANGELOG.md` — Unreleased → M3 entry.
+- `bench-baselines/bench-baseline-pre-m3.csv` + `bench-post-m3.csv`.
+- Bonus fix: `docker-image.yml` tag computation (`${{ github.ref_name }}` is `<N>/merge` on PR events; Docker tags disallow slashes). Now emits the sha tag always and a slash-flattened symbolic tag only on push events.
+
+### Behavioral change (consumer-visible)
+Shipment pickup step gains optional `co_located_group: string`. When ≥ 2 pickups share the non-empty tag and end up consecutive on one vehicle:
+
+```json
+"steps": [
+  { "type": "pickup", "id": 11, "arrival": 600, "service": 300 },
+  { "type": "pickup", "id": 12, "arrival": 600, "service": 0 },
+  { "type": "pickup", "id": 13, "arrival": 600, "service": 0 },
+  …
+]
+```
+
+plus `summary.computing_times.co_location_savings_seconds: 420`. Absent tag ⇒ mainline behavior. Mismatched locations under the same tag ⇒ input-error 400.
+
+Consumer unlock: `backend-dispatch` can delete `DispatchSharedPickupBatcher.php` (~460 LoC) and the peel-off loop in `VroomClient::solveIteratively` (~80 LoC) as flagged in the RFC consumer-hooks doc.
+
+### Benchmark deltas (post-M3 vs pre-M3 baseline on self-contained fixtures)
+
+| Fixture | Median ms (before / after) | P99 ms (before / after) |
+|---|---|---|
+| `example-2` | 3 / 3 | 4 / 4 |
+| `embedded-shipments-3` | 6 / 7 | 9 / 10 |
+| `embedded-shipments-4` | 7 / 7 | 7 / 8 |
+| `embedded-shipments-5` | 7 / 7 | 9 / 8 |
+| `co-located-group` (new) | — / 7 | — / 8 |
+| `co-located-split` (new) | — / 7 | — / 9 |
+
+All well under the 500 ms / 30-shipment budget. The sandbox only has up to 5-shipment fixtures — the real 10–50-shipment workload benches on CI / L1.
+
+### Risks and open items
+- **Solver doesn't proactively chase co-location bonus.** Local search clusters same-location pickups naturally because travel cost between them is 0, but there's no explicit cost-term bonus in the objective. If UAT reveals the solver sometimes disperses group members it should keep together, add the bias as a cheap follow-up — RFC §4.1.3 explicitly calls this "no explicit new cost term needed" so we respected that.
+- **Upstream RFC issues for M1, M2, and M3 still owed.** Fine-grained PAT in the harness can only target `gvoider/vroom`. Owner owns these if upstream contribution is desired.
+- **Docker registry secrets still absent.** `docker-image.yml` builds cleanly now (bonus fix above) but still doesn't push to GitLab until `GITLAB_REGISTRY_USER`/`TOKEN` are set on the repo.
+- **`co_location_savings_seconds` name.** The RFC calls for it on `computing_times` even though the rest of that struct is in ms. Kept the RFC naming with an explicit `_seconds` suffix so consumers don't mix units.
+
+### Notes for next milestone
+- **M4 = F2 soft time windows** (~1 week per RFC §7). Adds `soft_time_window: {preferred, cost_per_second_before, cost_per_second_after}` to any TW-bearing step; the solver biases arrivals toward the preferred sub-interval via a linear cost term.
+- Pre-work before writing C++:
+  - Open upstream issue *"RFC: soft time windows via preferred sub-interval"* on `VROOM-Project/vroom` (owner, since fine-grained PAT can't).
+  - Re-read RFC §4.2. This IS a cost-function change — unlike M3, this one adds an explicit term to the objective, so the solver actually chases it. Less post-hoc, more algorithmic.
+  - Identify where arrivals are evaluated relative to hard TWs (`tw_route`, scheduling logic in `problems/vrptw/`) — the soft cost needs to slot in alongside lateness / earliness checks without breaking hard-TW enforcement.
+- Implementation shape: extend `TimeWindow` with optional `preferred_start`, `preferred_end`, `cost_per_second_before`, `cost_per_second_after`; during route evaluation add `soft_time_window_violation` to `cost_breakdown` (the field already exists as a placeholder from M1); emit per-step `soft_window_violation_cost` in solution JSON.
+- Acceptance gate per RFC §4.2.7: consumer deletes `VroomClient::shiftRoutesLate` (~55 LoC); no > 10 % regression in median solve time.
+- Pre-merge sanity on every feature branch: `make -C src -j && ./scripts/regression.sh tests/fixtures/regression && ./scripts/bench.sh tests/fixtures/regression`.
+
+---
+
+## Inbox directive — issue #5 "M3 unblocked — embedded Valhalla matrices now available; proceed with F1" — 2026-04-18
+
+**Status**: complete
+**PR**: #6 (merged, `73cbeee6`); tag `v1.15.0-busportal.m3`
+**Summary**: Picked up master at `149711b1`, staged the three embedded-shipments fixtures into `tests/fixtures/regression/`, captured the pre-M3 baseline, implemented F1 with minimal scope (input parsing + validation + post-solve arrival-equalization / service dedup), added two new F1 fixtures, patched docs + CHANGELOG, opened PR into master, fixed one CI-surfaced docker-tag bug, self-merged on green, tagged `v1.15.0-busportal.m3`. Full details in the M3 milestone section above.
