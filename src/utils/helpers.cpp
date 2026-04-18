@@ -13,6 +13,7 @@ All rights reserved (see LICENSE).
 #include <sstream>
 
 #include "utils/helpers.h"
+#include "utils/unassigned_classifier.h"
 
 namespace vroom::utils {
 
@@ -359,9 +360,12 @@ Solution format_solution(const Input& input, const RawSolution& raw_routes) {
                                    user_travel_cost);
   }
 
-  return Solution(input.zero_amount(),
-                  std::move(routes),
-                  get_unassigned_jobs_from_ranks(input, unassigned_ranks));
+  auto unassigned = get_unassigned_jobs_from_ranks(input, unassigned_ranks);
+  Solution sol(input.zero_amount(), std::move(routes), std::move(unassigned));
+  if (input.diagnostics()) {
+    sol.unassigned_info = classify_unassigned(input, sol.unassigned);
+  }
+  return sol;
 }
 
 Route format_route(const Input& input,
@@ -873,9 +877,12 @@ Solution format_solution(const Input& input, const TWSolution& tw_routes) {
     }
   }
 
-  return Solution(input.zero_amount(),
-                  std::move(routes),
-                  get_unassigned_jobs_from_ranks(input, unassigned_ranks));
+  auto unassigned = get_unassigned_jobs_from_ranks(input, unassigned_ranks);
+  Solution sol(input.zero_amount(), std::move(routes), std::move(unassigned));
+  if (input.diagnostics()) {
+    sol.unassigned_info = classify_unassigned(input, sol.unassigned);
+  }
+  return sol;
 }
 
 } // namespace vroom::utils

@@ -67,6 +67,38 @@ for pfile in "$FIXTURES"/problem-*.json; do
     continue
   fi
 
+  # Diagnostics (F5, added in M2): if an expectation file exists under
+  # $FIXTURES/diagnostics/$label.json re-run with `-d` and assert the
+  # reason code for each unassigned id matches. Schema of the expectation
+  # file: {"unassigned": [{"id": N, "reason": "<code>"}]}.
+  diagnostics_expected="$FIXTURES/diagnostics/$label.json"
+  if [[ -f "$diagnostics_expected" ]]; then
+    # shellcheck disable=SC2086
+    if ! actual_diag=$("$BINARY" $EXTRA_ARGS -d -i "$pfile" 2>/dev/null); then
+      echo "FAIL $label: solver error when rerun with -d" >&2
+      fail=$((fail + 1))
+      continue
+    fi
+    diag_mismatch=$(jq -n \
+      --argjson exp "$(jq '.unassigned' "$diagnostics_expected")" \
+      --argjson act "$(echo "$actual_diag" | jq '.unassigned')" '
+      [
+        $exp[] as $e
+        | ($act[] | select(.id == $e.id)) as $a
+        | if ($a | type) == "null" then
+            "id=\($e.id): missing in output"
+          elif ($a.reason // null) != ($e.reason // null) then
+            "id=\($e.id): expected reason=\($e.reason), got \($a.reason // "null")"
+          else empty end
+      ] | join("; ")')
+    diag_mismatch=${diag_mismatch//\"/}
+    if [[ -n "$diag_mismatch" ]]; then
+      echo "FAIL $label: diagnostics mismatch: $diag_mismatch" >&2
+      fail=$((fail + 1))
+      continue
+    fi
+  fi
+
   # Cost-breakdown invariant (F3, added in M1): every component sums to
   # the route cost within one integer unit; the summary is the sum of
   # route breakdowns.

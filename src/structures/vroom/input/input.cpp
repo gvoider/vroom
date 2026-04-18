@@ -38,6 +38,10 @@ void Input::set_geometry(bool geometry) {
   _geometry = geometry;
 }
 
+void Input::set_diagnostics(bool diagnostics) {
+  _diagnostics = diagnostics;
+}
+
 void Input::add_routing_wrapper(const std::string& profile) {
 #if !USE_ROUTING
   throw RoutingException("VROOM compiled without routing support.");

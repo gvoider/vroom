@@ -550,7 +550,10 @@ template <class T> inline Matrix<T> get_matrix(rapidjson::Value& m) {
   return matrix;
 }
 
-void parse(Input& input, const std::string& input_str, bool geometry) {
+void parse(Input& input,
+           const std::string& input_str,
+           bool geometry,
+           bool diagnostics) {
   // Input json object.
   rapidjson::Document json_input;
 
@@ -586,6 +589,7 @@ void parse(Input& input, const std::string& input_str, bool geometry) {
     first_vehicle_has_capacity ? first_vehicle["capacity"].Size() : 0;
 
   input.set_geometry(geometry);
+  input.set_diagnostics(diagnostics);
 
   // Add all vehicles.
   for (rapidjson::SizeType i = 0; i < json_input["vehicles"].Size(); ++i) {

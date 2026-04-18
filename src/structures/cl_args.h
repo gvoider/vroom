@@ -27,6 +27,7 @@ struct CLArgs {
   bool check;              // -c
   bool apply_TSPFix;       // -f
   bool geometry;           // -g
+  bool diagnostics;        // -d, Busportal fork (M2 / F5)
   std::string input_file;  // -i
   Timeout timeout;         // -l
   std::string output_file; // -o

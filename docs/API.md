@@ -441,6 +441,34 @@ with up to one integer unit of rounding drift per route and no more than
 Both objects are always present. The forward-looking keys are emitted as
 zero so downstream code can consume the same shape across milestones.
 
+### Unassigned reasons (Busportal fork, M2)
+
+When invoked with the `-d` / `--diagnostics` flag (or when the HTTP
+wrapper passes `diagnostics: true` through), every entry in `unassigned[]`
+gains two fields:
+
+| Key | Description |
+|---|---|
+| `reason` | one of the stable codes listed below |
+| `details` | reason-specific payload; keys vary by code |
+
+Without `-d`, the output shape is unchanged from mainline.
+
+#### Reason codes
+
+| Code | When it fires | `details` keys |
+|---|---|---|
+| `no_vehicle_with_required_skills` | no vehicle's `skills` is a superset of the job's `skills` | `required_skills`, `vehicles_missing_skills` |
+| `capacity_exceeded` | the largest skill-compatible vehicle still can't fit the pickup/delivery | `capacity_dimension`, `required_capacity`, `max_available_capacity` |
+| `time_window_infeasible` | no candidate vehicle's earliest feasible arrival lands inside any of the job's time windows | `earliest`, `latest`, `closest_feasible_vehicle`, `closest_feasible_arrival`, `shortfall_seconds` |
+| `max_travel_time_exceeded` | every candidate vehicle's round trip (start → job → end) exceeds its `max_travel_time` | `max_allowed_seconds`, `would_require_seconds` |
+| `route_duration_limit_exceeded` | every candidate vehicle's `time_window` is too short to absorb the round trip plus service | `max_allowed_seconds`, `would_require_seconds` |
+| `no_feasible_insertion` | the job looks admissible in isolation for at least one vehicle but the full search still could not place it | `{}` |
+
+The classifier runs checks in the order listed: the first one that
+eliminates every vehicle "wins" and the rest short-circuit. This matches
+how a dispatcher triages manually — fix the biggest blocker first.
+
 ### Steps
 
 A `step` object has the following properties:

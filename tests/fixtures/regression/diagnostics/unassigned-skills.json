@@ -1,0 +1,5 @@
+{
+  "unassigned": [
+    {"id": 100, "reason": "no_vehicle_with_required_skills"}
+  ]
+}

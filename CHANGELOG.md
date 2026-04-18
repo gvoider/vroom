@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added (Busportal fork — M2, F5 structured unassigned-reason diagnostics)
+
+- New CLI flag `-d` / `--diagnostics`. When present, every entry in `solution.unassigned` is annotated with a stable `reason` code and a `details` payload per RFC §4.5.
+- Reason codes (stable strings): `no_vehicle_with_required_skills`, `capacity_exceeded`, `time_window_infeasible`, `max_travel_time_exceeded`, `route_duration_limit_exceeded`, `no_feasible_insertion`.
+- `vroom::UnassignedReason` enum and `vroom::UnassignedInfo` / `UnassignedDetails` structs at `src/structures/vroom/solution/unassigned_info.h`.
+- `utils::classify_unassigned()` at `src/utils/unassigned_classifier.{h,cpp}` — runs after `format_solution` when diagnostics is on.
+- `Input::set_diagnostics(bool)` + `Input::diagnostics()` accessor.
+- `to_json(const UnassignedDetails&, ...)` overload in `src/utils/output_json.{h,cpp}`; existing `unassigned[]` shape extended additively with `reason` and `details` fields only when diagnostics is on.
+- `scripts/regression.sh` now supports an optional `diagnostics/<label>.json` expectation file per fixture. When present, re-runs with `-d` and asserts the `reason` code per `unassigned[].id` matches.
+- Three new regression fixtures — `problem-unassigned-capacity.json`, `problem-unassigned-skills.json`, `problem-unassigned-tw.json` — plus their `diagnostics/*.json` expectations, each exercising a distinct reason code.
+- `docs/API.md` — new "Unassigned reasons" subsection documenting the flag, codes, and per-code `details` payload.
+
+Backwards compatibility: without `-d`, `unassigned[]` shape is byte-identical to mainline VROOM. Consumers opt in per-request.
+
 ### Added (Busportal fork — M1, F3 per-objective cost breakdown)
 
 - `summary.cost_breakdown` and `routes[].cost_breakdown` in the solution JSON. Each breakdown exposes `fixed_vehicle`, `duration`, `distance`, `task`, `priority_bias`, `soft_time_window_violation`, and `published_vehicle_deviation` in the fork's integer cost unit. Sum equals `cost` within ≤1 unit of rounding drift per route.
