@@ -1,0 +1,58 @@
+{
+  "_comment": "Bug 2 (inbox #7) guard: three same-coord pickups with staggered TW-starts [100, 500, 1000]. Without the fix, arrival-equalization would set all arrivals to the first member's arrival (~100) which violates members 2's and 3's own earliest-start TWs. With the fix, the common arrival is max across the group's tw_starts (1000), every member's TW-start is respected, and max(service) is charged once.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "capacity": [10],
+      "time_window": [0, 10000],
+      "costs": {"per_hour": 3600, "per_task_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 101,
+        "location_index": 1,
+        "service": 200,
+        "time_windows": [[100, 5000]],
+        "co_located_group": "stop:stag"
+      },
+      "delivery": {"id": 101, "location_index": 2, "service": 0},
+      "amount": [1]
+    },
+    {
+      "pickup": {
+        "id": 102,
+        "location_index": 1,
+        "service": 200,
+        "time_windows": [[500, 5000]],
+        "co_located_group": "stop:stag"
+      },
+      "delivery": {"id": 102, "location_index": 2, "service": 0},
+      "amount": [1]
+    },
+    {
+      "pickup": {
+        "id": 103,
+        "location_index": 1,
+        "service": 200,
+        "time_windows": [[1000, 5000]],
+        "co_located_group": "stop:stag"
+      },
+      "delivery": {"id": 103, "location_index": 2, "service": 0},
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 50, 100],
+        [50, 0, 80],
+        [100, 80, 0]
+      ]
+    }
+  }
+}

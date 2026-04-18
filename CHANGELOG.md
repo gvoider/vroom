@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Fixed (Busportal fork — M3 correctness follow-up, inbox #7)
+
+Four concrete defects in the M3 co-location dedup pass identified by an adversarial review. All fixed on `feat/m3-co-located-fixes` (tag `v1.15.0-busportal.m3.1`):
+
+- **Bug 1 — step-timing invariant.** Clarified that `step.duration` is cumulative *travel* duration per VROOM upstream; dedup removes service, not travel, so duration must not shift. Only `step.arrival` shifts. `scripts/regression.sh` now asserts `arrival[k] - arrival[0] == duration[k] + cumulative(setup+service+waiting) before k` on every fixture.
+- **Bug 2 — TW-start violations during arrival equalization.** When a co-located run's members have staggered `time_windows[0].start`, equalizing to the first member's arrival could place later members before their own hard TW-start. Now the common arrival is `max(anchor.arrival, max(member.tws.front().start))` across the run. New fixture `problem-co-located-tw-stagger.json`.
+- **Pooled service placement.** Tied to bug 1: the pooled `max(service)` is now charged on the LAST member of a run instead of the first, so every intra-run member's arrival + service-0 stays consistent with the step-timing invariant.
+- **Bug 3 — per-run equalization semantics.** RFC §4.1.3 amended on `handoff/initial-briefing` to clarify that the equalization unit is a maximal consecutive run (capacity constraints can force a delivery between two group pickups; rejecting that would eliminate feasible solutions). `docs/API.md` mirrors the amendment.
+- **Bug 4 — partial summary-breakdown re-accumulation.** Post-dedup summary only had `task`/`cost`/`service` updated; `duration`/`distance`/`fixed_vehicle`/placeholders were stale pre-dedup aggregates. Worked by accident on M3 fixtures because `task` was the only bucket being touched. Now every field is re-accumulated from route breakdowns via a single helper. New fixture `problem-co-located-breakdown-reaccum.json`.
+- **Harness guard.** `scripts/regression.sh` now asserts the step-timing invariant so any future regression introducing this class of bug fails CI immediately.
+
+Two new fixtures: `problem-co-located-tw-stagger.json`, `problem-co-located-breakdown-reaccum.json`. Existing `problem-co-located-{group,split}.json` solutions re-recorded to reflect service-on-last-member placement.
+
 ### Added (Busportal fork — M3, F1 native co-located shared-stop batching)
 
 - New optional `co_located_group` string on each pickup step (shipments). Pickups with the same non-empty tag are treated as "sharing a physical stop". Empty or absent ⇒ mainline behavior.
