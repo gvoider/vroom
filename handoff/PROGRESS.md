@@ -50,3 +50,73 @@ The sandbox has no Valhalla, so the Busportal handoff fixture set couldn't run. 
 - Implementation shape: a `cost_components_t` struct alongside the existing accumulated cost; write each component as it is accrued; expose via `write_breakdown(rapidjson::Value&)` in `output_json.cpp`.
 - Acceptance gate per RFC §4.3.5: components sum to `summary.cost` within ±1 unit; no solve-time regression > 5%; consumer PR in `backend-dispatch` consumes the new field behind a feature flag.
 - Pre-merge sanity check on every feature branch: `make -C src -j && ./scripts/regression.sh tests/fixtures/regression && ./scripts/bench.sh tests/fixtures/regression`.
+
+---
+
+## Milestone M1 — F3 per-objective cost breakdown — 2026-04-18
+
+**Status**: complete
+**Commits**: pushed to `claude/busportal-dispatch-features-W1Uwk` — `5f9932e6` ("M1 (F3): per-objective cost breakdown in solution output", 20 files, +348 / −28 LoC).
+**Upstream issue/PR**: not opened. GitHub MCP scope in the session is restricted to `gvoider/vroom`, so the RFC issue on `VROOM-Project/vroom` is deferred. Owner can open manually: suggested title *"RFC: expose per-objective cost breakdown in `summary.cost_breakdown`"*.
+
+### What shipped
+- `src/structures/vroom/solution/cost_breakdown.h` — new `CostBreakdown` struct with buckets `fixed_vehicle`, `duration`, `distance`, `task`, `priority_bias`, `soft_time_window_violation`, `published_vehicle_deviation`. Additive via `operator+=`.
+- `src/structures/vroom/solution/route.h` + `summary.h` — `CostBreakdown cost_breakdown` field added alongside `cost`.
+- `src/structures/vroom/solution/solution.cpp` — accumulates `summary.cost_breakdown += route.cost_breakdown`.
+- `src/structures/vroom/cost_wrapper.h` — new `per_hour()` / `per_km()` accessors so the breakdown can split travel cost the same way `user_cost_from_user_metrics` does.
+- `src/utils/helpers.{h,cpp}` — new `utils::compute_route_cost_breakdown()` called at the CVRP and VRPTW `Route`-construction sites; handles both the `cost_based_on_metrics` case (splits travel cost into `duration` and `distance` buckets) and the user-supplied-cost-matrix case (parks travel cost in `duration`, leaves `distance` at zero).
+- `src/algorithms/validation/choose_ETA.cpp` — same breakdown computation at the VRPTW validation `Route` construction site.
+- `src/utils/output_json.{h,cpp}` — new `to_json(const CostBreakdown&, …)` overload; `cost_breakdown` emitted on both `summary` and each `routes[]` entry.
+- `scripts/regression.sh` — now asserts the breakdown sum invariant (`|cost − sum(breakdown)| ≤ 1` for every route and for the summary); fails CI on drift.
+- `tests/fixtures/regression/problem-cost-breakdown.{json}` + solution — exercises non-zero `fixed_vehicle`, `duration`, `distance`, `task` buckets.
+- `tests/fixtures/regression/problem-custom-cost-matrix.{json}` + solution — exercises the `!cost_based_on_metrics` path where a user-supplied `costs` matrix makes distance-vs-duration attribution meaningless.
+- `docs/API.md` — new "Cost breakdown" subsection documenting keys, invariants, and the forward-looking placeholders.
+- `CHANGELOG.md` — Unreleased → M1 entry.
+- `bench-baselines/bench-baseline-post-m0.csv` and `bench-post-m1.csv` — numeric baselines committed; bench.sh remains the canonical way to regenerate.
+
+### Behavioral change (consumer-visible)
+Every solve now returns:
+
+```json
+"summary": {
+  "cost": …,
+  "cost_breakdown": {
+    "fixed_vehicle": …, "duration": …, "distance": …, "task": …,
+    "priority_bias": 0,
+    "soft_time_window_violation": 0,
+    "published_vehicle_deviation": 0
+  },
+  …
+},
+"routes": [
+  { "vehicle": …, "cost": …, "cost_breakdown": { … }, … }
+]
+```
+
+All other fields are untouched. `backend-dispatch` can start consuming `cost_breakdown` behind a feature flag; no existing field is renamed or removed.
+
+### Benchmark deltas (vs. post-M0 baseline on the self-contained fixture)
+
+| Fixture | Median ms (before / after) | P99 ms (before / after) | Cost delta |
+|---|---|---|---|
+| `example-2` | 4 / 3 | 8 / 5 | 0 (5461 → 5461) |
+| `cost-breakdown` (new) | — / 0 | — / 1 | — |
+| `custom-cost-matrix` (new) | — / 0 | — / 0 | — |
+
+No regression on `example-2`. Run-to-run noise dominates at this fixture size. Real regression check requires a larger problem set — see "Valhalla mock" blocker below.
+
+### Risks and open items
+- **Valhalla mock still not set up.** Same blocker as after M0. Large-problem benchmarking waits on mock matrices or a dev Valhalla instance. M3 (F1 co-located shared-stop batching) will materially need this; M1–M2 don't.
+- **Docker registry secrets still not configured.** Same blocker as after M0. The image builds in CI but won't publish until `GITLAB_REGISTRY_USER`/`GITLAB_REGISTRY_TOKEN` are added.
+- **Upstream RFC issue owed.** Not opened from this session (MCP scope). Either the owner opens it manually with the title above, or a future session with `public_repo` PAT scope handles it before any upstream PR.
+- **`distance` bucket behavior when using a custom `cost` matrix.** We park the full travel cost in `duration` and leave `distance` at 0, which is documented but may surprise consumers that inspect the split. If the dispatcher UI cares, add an `attribution: "from_metrics" | "from_cost_matrix"` tag on the breakdown — deferred pending UAT feedback.
+- **No C++ unit tests yet.** Upstream has no catch2 harness in this repo; we rely on JSON-level regression fixtures. If M3+ accumulate enough non-trivial logic, introduce catch2 as a new `tests/unit/` subdir — but that's a scope call for M3 prep, not M1.
+
+### Notes for next milestone
+- **M2 = F5 structured unassigned-reason diagnostics** (~1 week per RFC §7). Swaps the current coarse `unassigned[].reason` (string or absent) for a structured reason code object per RFC §4.5. Key consumer deletion: `backend-dispatch DispatchDiagnostician::classifyOne` (≈50 LoC).
+- Pre-work before writing C++:
+  - Open upstream issue *"RFC: structured `unassigned[i].reason` with stable reason codes"* on `VROOM-Project/vroom`.
+  - Re-read RFC §4.5 for the codebook: `no_route_found`, `capacity_exceeded`, `time_window_miss`, `skills_missing`, `max_tasks_exceeded`, `max_travel_time_exceeded`, `invalid`, `other`.
+  - Find where `unassigned` is populated today. Start with `src/utils/helpers.cpp` (`get_unassigned_jobs_from_ranks`) and trace backward to the rejection sites in `src/problems/*/` and the local-search rollback paths — those are the places that KNOW the reason but currently drop the information.
+- Implementation shape: add `UnassignedReason` enum + `std::string` helper; extend `Job` (or a sibling `UnassignedJob`) with an optional reason code + freeform detail; emit as `{ "reason": "capacity_exceeded", "detail": "pickup exceeds vehicle 3 capacity by 2" }`.
+- Sanity check on every feature branch: `make -C src -j && ./scripts/regression.sh tests/fixtures/regression && ./scripts/bench.sh tests/fixtures/regression`.
