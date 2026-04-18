@@ -1,0 +1,347 @@
+{
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "speed_factor": 0.85,
+      "description": "Тест test 4352345",
+      "end": [
+        23.995624083835,
+        49.838378062233
+      ],
+      "capacity": [
+        4,
+        3
+      ],
+      "time_window": [
+        86400,
+        172800
+      ],
+      "costs": {
+        "fixed": 100000
+      },
+      "end_index": 0
+    },
+    {
+      "id": 3,
+      "profile": "auto",
+      "speed_factor": 0.85,
+      "description": "Mercedes-Benz Vito Tourer RJA75582",
+      "end": [
+        23.995624083835,
+        49.838378062233
+      ],
+      "capacity": [
+        5,
+        17
+      ],
+      "time_window": [
+        86400,
+        172800
+      ],
+      "costs": {
+        "fixed": 100000
+      },
+      "end_index": 0
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 15,
+        "location": [
+          25.343597,
+          50.766658
+        ],
+        "service": 0,
+        "description": "[sanitized-pickup-15]",
+        "time_windows": [
+          [
+            140100,
+            140700
+          ]
+        ],
+        "location_index": 1
+      },
+      "delivery": {
+        "id": 15,
+        "location": [
+          23.995624083835,
+          49.838378062233
+        ],
+        "service": 60,
+        "time_windows": [
+          [
+            144000,
+            153000
+          ]
+        ],
+        "location_index": 0
+      },
+      "amount": [
+        5,
+        0
+      ],
+      "priority": 100
+    },
+    {
+      "pickup": {
+        "id": 8,
+        "location": [
+          25.36148615739134,
+          50.76822492758018
+        ],
+        "service": 0,
+        "description": "[sanitized-pickup-8]",
+        "time_windows": [
+          [
+            139500,
+            140100
+          ]
+        ],
+        "location_index": 2
+      },
+      "delivery": {
+        "id": 8,
+        "location": [
+          23.995624083835,
+          49.838378062233
+        ],
+        "service": 60,
+        "time_windows": [
+          [
+            144000,
+            153000
+          ]
+        ],
+        "location_index": 0
+      },
+      "amount": [
+        1,
+        0
+      ],
+      "priority": 100
+    },
+    {
+      "pickup": {
+        "id": 9,
+        "location": [
+          25.35231182305148,
+          50.74339414293888
+        ],
+        "service": 0,
+        "description": "[sanitized-pickup-9]",
+        "time_windows": [
+          [
+            129600,
+            153000
+          ]
+        ],
+        "location_index": 3
+      },
+      "delivery": {
+        "id": 9,
+        "location": [
+          23.995624083835,
+          49.838378062233
+        ],
+        "service": 60,
+        "time_windows": [
+          [
+            144000,
+            153000
+          ]
+        ],
+        "location_index": 0
+      },
+      "amount": [
+        1,
+        0
+      ],
+      "priority": 10
+    },
+    {
+      "pickup": {
+        "id": 10,
+        "location": [
+          25.337500334626412,
+          50.743944725780494
+        ],
+        "service": 0,
+        "description": "[sanitized-pickup-10]",
+        "time_windows": [
+          [
+            129600,
+            153000
+          ]
+        ],
+        "location_index": 4
+      },
+      "delivery": {
+        "id": 10,
+        "location": [
+          23.995624083835,
+          49.838378062233
+        ],
+        "service": 60,
+        "time_windows": [
+          [
+            144000,
+            153000
+          ]
+        ],
+        "location_index": 0
+      },
+      "amount": [
+        1,
+        0
+      ],
+      "priority": 50
+    },
+    {
+      "pickup": {
+        "id": 14,
+        "location": [
+          23.49431839786419,
+          49.34490110805987
+        ],
+        "service": 0,
+        "description": "[sanitized-pickup-14]",
+        "time_windows": [
+          [
+            129600,
+            153000
+          ]
+        ],
+        "location_index": 5
+      },
+      "delivery": {
+        "id": 14,
+        "location": [
+          23.995624083835,
+          49.838378062233
+        ],
+        "service": 60,
+        "time_windows": [
+          [
+            144000,
+            153000
+          ]
+        ],
+        "location_index": 0
+      },
+      "amount": [
+        1,
+        0
+      ],
+      "priority": 10
+    }
+  ],
+  "options": {
+    "g": true
+  },
+  "matrices": {
+    "auto": {
+      "durations": [
+        [
+          0,
+          10771,
+          11129,
+          10740,
+          10723,
+          6851
+        ],
+        [
+          10859,
+          0,
+          358,
+          457,
+          530,
+          15583
+        ],
+        [
+          11215,
+          355,
+          0,
+          536,
+          696,
+          15939
+        ],
+        [
+          10852,
+          435,
+          539,
+          0,
+          160,
+          15575
+        ],
+        [
+          10806,
+          408,
+          766,
+          265,
+          0,
+          15530
+        ],
+        [
+          6949,
+          15568,
+          15926,
+          15537,
+          15520,
+          0
+        ]
+      ],
+      "distances": [
+        [
+          0,
+          154828,
+          157770,
+          154515,
+          153370,
+          82766
+        ],
+        [
+          155651,
+          0,
+          2942,
+          5398,
+          5668,
+          243505
+        ],
+        [
+          158574,
+          2923,
+          0,
+          4033,
+          5329,
+          246428
+        ],
+        [
+          156311,
+          3565,
+          4018,
+          0,
+          1296,
+          244165
+        ],
+        [
+          154544,
+          4441,
+          7383,
+          2767,
+          0,
+          242398
+        ],
+        [
+          82922,
+          242939,
+          245881,
+          242626,
+          241481,
+          0
+        ]
+      ]
+    }
+  }
+}

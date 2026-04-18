@@ -105,6 +105,10 @@ private:
 
   void run_basic_checks() const;
 
+  // Busportal fork, M3 / F1. Enforce "same co_located_group ⇒ same
+  // location within ~1.1 m" on pickup steps.
+  void check_co_located_groups() const;
+
   UserCost check_cost_bound(const Matrix<UserCost>& matrix) const;
 
   void set_skills_compatibility();

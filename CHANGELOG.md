@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added (Busportal fork — M3, F1 native co-located shared-stop batching)
+
+- New optional `co_located_group` string on each pickup step (shipments). Pickups with the same non-empty tag are treated as "sharing a physical stop". Empty or absent ⇒ mainline behavior.
+- `Input::check_co_located_groups()` validation enforces "same group ⇒ same location within ~1.1 m" (5 decimal places); mismatch is rejected with `code: 2`.
+- `utils::apply_co_location_dedup()` post-solve pass (`src/utils/co_location_dedup.{h,cpp}`): on each route, finds maximal consecutive runs of co-located pickups sharing a tag, equalizes their arrival times, charges `max(service)` once (zero-out the rest), and updates `route.service`, `route.cost`, and `route.cost_breakdown.task` accordingly.
+- `summary.computing_times.co_location_savings_seconds` reports the total service-time saving across all routes. Named `_seconds` because it's seconds whereas the other computing_times entries are milliseconds — the suffix is intentional so consumers don't mix units.
+- Two new regression fixtures: `problem-co-located-group.json` (3+1 pickups on one vehicle exercising the happy path) and `problem-co-located-split.json` (4 pickups at one stop interleaved with deliveries, demonstrating per-run dedup on a single vehicle).
+- `docs/API.md` — new `co_located_group` documentation under the shipment-step table.
+
+Implementation notes:
+- The solver's objective function is **not** modified. Travel cost between same-location steps is already zero in the matrix, so local search naturally clusters group members on one vehicle. The dedup is applied as a post-solve accounting pass.
+- Group members that end up non-consecutively on the same vehicle (an interleaved different-location step) dedup per-run, not per-group — matches RFC §4.1 Example 2 semantics.
+- Zero overhead when no pickup carries a `co_located_group` tag (the pass short-circuits on the first step check).
+
 ### Fixed (Busportal fork — Dockerfile reproducibility, inbox #3)
 
 - `docker/Dockerfile` base image `bookworm-slim` → `trixie-slim` so the compiler is GCC 13+ (required by `std::format` in `routing/wrapper.h`). Bookworm ships GCC 12 and fails to build.

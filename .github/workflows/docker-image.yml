@@ -55,14 +55,27 @@ jobs:
           username: ${{ secrets.GITLAB_REGISTRY_USER }}
           password: ${{ secrets.GITLAB_REGISTRY_TOKEN }}
 
+      - name: Compute image tags
+        id: tags
+        run: |
+          # Always emit the sha tag. Emit the symbolic tag only on push
+          # events — pull_request events have `github.ref_name` =
+          # "<number>/merge", which isn't a valid Docker reference.
+          # Branch-named tags with slashes (feat/m3-co-located) are
+          # also flattened to "feat-m3-co-located" for the same reason.
+          tags="${{ env.IMAGE }}:${{ github.sha }}"
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            safe_ref="${GITHUB_REF_NAME//\//-}"
+            tags="$tags,${{ env.IMAGE }}:$safe_ref"
+          fi
+          echo "list=$tags" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: docker/Dockerfile
           push: ${{ steps.secrets.outputs.push == 'true' }}
-          tags: |
-            ${{ env.IMAGE }}:${{ github.sha }}
-            ${{ env.IMAGE }}:${{ github.ref_name }}
+          tags: ${{ steps.tags.outputs.list }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

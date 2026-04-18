@@ -1,0 +1,52 @@
+{
+  "_comment": "F1 cross-vehicle split: 4 passengers at one stop but capacity forces a 2/2 split across two vehicles. Each vehicle should pay its own max(service) once (RFC example 2). Deduped saving is per-vehicle, not cross-vehicle.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "capacity": [2],
+      "costs": {"per_hour": 3600, "per_task_hour": 3600}
+    },
+    {
+      "id": 2,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "capacity": [2],
+      "costs": {"per_hour": 3600, "per_task_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {"id": 21, "location_index": 1, "service": 300, "co_located_group": "stop:X"},
+      "delivery": {"id": 21, "location_index": 2, "service": 0},
+      "amount": [1]
+    },
+    {
+      "pickup": {"id": 22, "location_index": 1, "service": 240, "co_located_group": "stop:X"},
+      "delivery": {"id": 22, "location_index": 2, "service": 0},
+      "amount": [1]
+    },
+    {
+      "pickup": {"id": 23, "location_index": 1, "service": 180, "co_located_group": "stop:X"},
+      "delivery": {"id": 23, "location_index": 2, "service": 0},
+      "amount": [1]
+    },
+    {
+      "pickup": {"id": 24, "location_index": 1, "service": 120, "co_located_group": "stop:X"},
+      "delivery": {"id": 24, "location_index": 2, "service": 0},
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 500, 800],
+        [500, 0, 400],
+        [800, 400, 0]
+      ]
+    }
+  }
+}

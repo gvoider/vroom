@@ -36,6 +36,13 @@ struct Job {
   std::vector<Duration> setups;
   std::vector<Duration> services;
 
+  // Busportal fork, M3 / F1. Non-empty on a pickup step iff the consumer
+  // has tagged it as co-located with other pickups. Same non-empty string
+  // means "these pickups share a physical stop"; routes may charge service
+  // time once and equalize arrivals when group members are consecutive on
+  // a single vehicle. Unused on non-pickup job types.
+  const std::string co_located_group;
+
   // Constructor for regular one-stop job (JOB_TYPE::SINGLE).
   Job(Id id,
       const Location& location,
@@ -65,7 +72,8 @@ struct Job {
         std::vector<TimeWindow>(1, TimeWindow()),
       std::string description = "",
       const TypeToUserDurationMap& setup_per_type = TypeToUserDurationMap(),
-      const TypeToUserDurationMap& service_per_type = TypeToUserDurationMap());
+      const TypeToUserDurationMap& service_per_type = TypeToUserDurationMap(),
+      std::string co_located_group = "");
 
   Index index() const {
     return location.index();

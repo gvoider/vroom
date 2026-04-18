@@ -8,9 +8,11 @@ All rights reserved (see LICENSE).
 */
 
 #include <algorithm>
+#include <cmath>
 #include <mutex>
 #include <semaphore>
 #include <thread>
+#include <unordered_map>
 
 #if USE_LIBOSRM
 #include "osrm/exception.hpp"
@@ -26,6 +28,7 @@ All rights reserved (see LICENSE).
 #include "routing/osrm_routed_wrapper.h"
 #include "routing/valhalla_wrapper.h"
 #include "structures/vroom/input/input.h"
+#include "utils/co_location_dedup.h"
 #include "utils/helpers.h"
 
 namespace vroom {
@@ -1211,11 +1214,55 @@ Solution Input::solve(const unsigned exploration_level,
                timeout);
 }
 
+void Input::check_co_located_groups() const {
+  // Busportal fork, M3 / F1. All pickups sharing the same non-empty
+  // `co_located_group` string must share the same physical location
+  // within ~1.1 m (5 decimal places on each coordinate). If they don't,
+  // reject the problem — otherwise the arrival-equalization post-solve
+  // step would fabricate travel time that isn't there.
+  constexpr double tol_deg = 1e-5;
+  std::unordered_map<std::string, const Job*> group_anchor;
+  for (const auto& job : jobs) {
+    if (job.type != JOB_TYPE::PICKUP || job.co_located_group.empty()) {
+      continue;
+    }
+    auto [it, inserted] = group_anchor.try_emplace(job.co_located_group, &job);
+    if (inserted) {
+      continue;
+    }
+    const auto& anchor = *it->second;
+    if (!job.location.has_coordinates() || !anchor.location.has_coordinates()) {
+      // Locations that share an index always share coordinates from
+      // VROOM's perspective; only coordinate-based setups need tolerance
+      // checking. Fall back to strict equality by index.
+      if (job.index() != anchor.index()) {
+        throw InputException(
+          std::format("co_located_group {} members at different locations "
+                      "(pickup {} vs pickup {}).",
+                      job.co_located_group,
+                      anchor.id,
+                      job.id));
+      }
+      continue;
+    }
+    if (std::abs(job.location.lon() - anchor.location.lon()) > tol_deg ||
+        std::abs(job.location.lat() - anchor.location.lat()) > tol_deg) {
+      throw InputException(
+        std::format("co_located_group {} members at different locations "
+                    "(pickup {} vs pickup {}).",
+                    job.co_located_group,
+                    anchor.id,
+                    job.id));
+    }
+  }
+}
+
 Solution Input::solve(const unsigned nb_searches,
                       const unsigned depth,
                       const unsigned nb_thread,
                       const Timeout& timeout) {
   run_basic_checks();
+  check_co_located_groups();
 
   if (_has_initial_routes) {
     set_vehicle_steps_ranks();
@@ -1313,6 +1360,10 @@ Solution Input::solve(const unsigned nb_searches,
 
     sol.summary.computing_times.routing = routing;
   }
+
+  // Busportal fork, M3 / F1. Dedup consecutive co-located pickup runs
+  // and populate computing_times.co_location_savings_seconds.
+  utils::apply_co_location_dedup(*this, sol);
 
   return sol;
 }

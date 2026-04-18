@@ -34,6 +34,11 @@ struct Step {
   UserDuration waiting_time{0};
   UserDistance distance{0};
 
+  // Busportal fork, M3 / F1. Non-empty when the step corresponds to a
+  // pickup whose Job carried a co_located_group tag. Used post-solve
+  // to detect consecutive co-located runs and dedup their service.
+  std::string co_located_group;
+
   Violations violations;
 
   Step(STEP_TYPE type, Location location, Amount load);

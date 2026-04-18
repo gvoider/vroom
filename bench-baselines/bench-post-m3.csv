@@ -1,0 +1,12 @@
+fixture,shipments,jobs,vehicles,median_ms,p99_ms,cost,routes,unassigned,distance_m,duration_s
+problem-co-located-group,4,0,1,7,8,3020,1,0,null,2600
+problem-co-located-split,4,0,2,7,9,2980,1,0,null,2500
+problem-cost-breakdown,0,2,1,0,0,18200,1,0,23000,2700
+problem-custom-cost-matrix,0,2,1,0,0,28575,1,0,null,2700
+problem-embedded-shipments-3,3,0,2,7,10,225627,2,2,311302,25627
+problem-embedded-shipments-4,4,0,2,7,8,226109,2,2,315743,26109
+problem-embedded-shipments-5,5,0,2,7,8,226995,2,2,321010,26995
+problem-example-2,0,2,1,3,4,5461,1,0,null,5461
+problem-unassigned-capacity,0,1,1,6,9,0,0,1,null,0
+problem-unassigned-skills,0,1,1,6,8,0,0,1,null,0
+problem-unassigned-tw,0,1,1,6,8,0,0,1,null,0
