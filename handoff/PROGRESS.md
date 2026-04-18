@@ -313,3 +313,81 @@ Two new fixtures + re-records of two existing solutions. All 13 fixtures pass wi
 ### Notes for next milestone
 - M3.1 is a pure correctness-hardening release; M4 (F2 soft time windows) picks up where the M3 PROGRESS entry left off. No new prerequisites introduced.
 - Consumer integration for M3 still pending (delete `DispatchSharedPickupBatcher.php` and the peel-off loop); now safer to do because the step-timing invariant is enforced in CI.
+
+---
+
+## Milestone M4 — F2 soft time windows — 2026-04-18
+
+**Status**: complete, merged, tagged
+**Commits**: PR #10 merged at `1061e639` on `master`; tag `v1.15.0-busportal.m4`.
+**Upstream RFC/PR**: not opened (same fine-grained PAT scope blocker as M1–M3).
+
+### What shipped
+- `SoftTimeWindow` struct at `src/structures/vroom/soft_time_window.{h,cpp}`; `violation_cost(arrival)` helper computes the linear before/after penalty.
+- `Job` gains an optional `soft_time_window`; input parser reads it on pickup/delivery/single-job steps.
+- `Input::check_soft_time_windows()` rejects `preferred` not contained in any hard TW with `code: 2`.
+- `utils::apply_soft_time_window_pass()` at `src/utils/soft_time_window_pass.{h,cpp}` — post-solve pass. Backward-computes latest-feasible arrivals, walks forward shifting each soft-TW step toward its preferred interval, attributes each delay increment to the PRECEDING step's `waiting_time` so the M3.1 step-timing invariant keeps holding.
+- `Step` carries a copy of the Job's `soft_time_window` + new per-step `soft_window_violation_cost` field; JSON emits the latter only on steps that carry a soft TW (mainline fixtures stay byte-identical).
+- `cost_breakdown.soft_time_window_violation` (zero placeholder since M1) now populated; re-accumulated onto summary via the M3.1 helper spirit.
+- Three new F2 regression fixtures (`soft-tw-shift-late`, `soft-tw-before-preferred`, `soft-tw-after-preferred`) + one validation fixture (`tests/fixtures/validation/problem-soft-tw-reject.json`) for the `preferred ⊄ hard` rejection path.
+- Deferred-from-M3.1 bench coverage: `scripts/gen-synthetic-30.py` + `tests/fixtures/regression/problem-synthetic-30.json`. Deterministic 28-shipment fixture (20 + 5 co-located + 3 confirmed, seeded RNG); solves in ~77 ms median / 93 ms p99, well under the 500 ms RFC §8 budget.
+- `docs/API.md` — new "Soft time window" subsection.
+- `CHANGELOG.md` — Unreleased → M4 entry.
+- `bench-baselines/bench-post-m4.csv`.
+
+One subtle bug caught mid-implementation (documented in PR body): pickup and delivery share the shipment id, so a naive lookup across (pickup_id_to_rank, delivery_id_to_rank) on a delivery step returned the pickup's hard TW and shifted arrivals past the delivery's own window. Fix: dispatch on `step.job_type`.
+
+### Behavioral change (consumer-visible)
+
+```json
+"pickup": {
+  "id": 42,
+  "time_windows": [[140100, 140700]],
+  "soft_time_window": {
+    "preferred": [140400, 140500],
+    "cost_per_second_before": 0.1,
+    "cost_per_second_after": 0.5
+  }
+}
+```
+
+Output additions on the step: `soft_window_violation_cost`. On summary / route: `cost_breakdown.soft_time_window_violation` is now non-zero when any soft TW fires.
+
+Consumer unlock: `backend-dispatch VroomClient::shiftRoutesLate` (~55 LoC) can be deleted. Tag soft pickups with the new field; fork handles the shift natively.
+
+### Benchmark deltas (post-M4 vs pre-M4, self-contained fixtures)
+
+| Fixture | Median ms (before / after) | P99 ms (before / after) | Cost delta |
+|---|---|---|---|
+| `example-2` | 3 / 4 | 4 / 6 | 0 |
+| `embedded-shipments-3` | 9 / 9 | 10 / 11 | 0 |
+| `embedded-shipments-5` | 9 / 9 | 11 / 11 | 0 |
+| `co-located-group` | 7 / 9 | 8 / 11 | 0 |
+| `soft-tw-shift-late` (new) | — / 9 | — / 11 | — |
+| `soft-tw-before-preferred` (new) | — / 10 | — / 13 | — |
+| `soft-tw-after-preferred` (new) | — / 9 | — / 11 | — |
+| `synthetic-30` (new, 28 shipments) | — / 77 | — / 93 | — |
+
+No regression beyond sandbox noise. RFC §8 acceptance gate (500 ms median on 30-shipment problems) holds with an 80 ms margin.
+
+### Risks and open items
+- **Shift-late only.** The pass never pulls an arrival earlier than the solver's choice. A step already past `preferred_end` pays `cost_per_second_after` but isn't re-sequenced. If UAT reveals that mixed tight/loose routes need bidirectional shift, that's an M4.1 follow-up.
+- **Solver doesn't see the soft cost during sequence selection.** Post-solve accounting only. If UAT shows the solver is picking sub-optimal sequences wrt soft cost, add a GLPK LP-objective term in choose_ETA.cpp as a follow-up. Low-probability issue for Busportal's workload (all-soft-pickups case works; mixed case largely works because the tight step's hard TW already pins the sequence).
+- **Upstream RFC for F2 still owed.** Same PAT-scope blocker.
+- **Docker registry secrets still absent.** Still non-blocking; re-examine at M5.
+
+### Notes for next milestone
+- **M5 = F4 plan diff endpoint** (~0.5 weeks per RFC §7). New `POST /diff` HTTP endpoint taking two solution JSONs and returning a structured diff. This is the first milestone that touches the HTTP surface — most of the work lives in `vroom-express` (separate upstream repo) rather than our fork.
+- Pre-work:
+  - Open upstream RFC (same PAT blocker; owner-side).
+  - Re-read RFC §4.4 — shape of the diff payload, supported change types.
+  - Decide split: does the diffing logic live in our fork (new helper) or entirely in `vroom-express`? RFC §4.4 suggests the fork, so `backend-dispatch` just POSTs the two solutions and reads back a structured diff. Implication: our fork image needs `vroom-express` configured to route `/diff` to a new handler, which means a `vroom-express` PR too.
+- Pre-merge sanity: `make -C src -j && ./scripts/regression.sh tests/fixtures/regression && ./scripts/bench.sh tests/fixtures/regression`.
+
+---
+
+## Inbox directive — issue #9 "M4 kickoff — F2 soft time windows" — 2026-04-18
+
+**Status**: complete
+**PR**: #10 (merged, `1061e639`); tag `v1.15.0-busportal.m4`
+**Summary**: Full M4 shipped on `feat/m4-soft-time-windows` → merged to master. Three new F2 regression fixtures + one validation-rejection fixture + the deferred 28-shipment synthetic bench. Details in the M4 milestone section above.
