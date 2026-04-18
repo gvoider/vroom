@@ -391,3 +391,54 @@ No regression beyond sandbox noise. RFC §8 acceptance gate (500 ms median on 30
 **Status**: complete
 **PR**: #10 (merged, `1061e639`); tag `v1.15.0-busportal.m4`
 **Summary**: Full M4 shipped on `feat/m4-soft-time-windows` → merged to master. Three new F2 regression fixtures + one validation-rejection fixture + the deferred 28-shipment synthetic bench. Details in the M4 milestone section above.
+
+---
+
+## Milestone M5 — F4 plan diff CLI + library — 2026-04-18
+
+**Status**: complete, merged, tagged. P0 scope complete.
+**Commits**: PR #12 merged at `df0ffe28` on `master`; tag `v1.15.0-busportal.m5`.
+**Upstream RFC/PR**: not opened (same fine-grained PAT scope blocker).
+
+### What shipped
+- `vroom::io::compute_plan_diff()` library function at `src/utils/plan_diff.{h,cpp}`. Returns a `PlanDiff` with `shipment_diffs`, `route_diffs`, `summary_diff`.
+- CLI flags `--diff-before FILE` + `--diff-after FILE` on `bin/vroom`. When both set, bypasses the normal solve pipeline entirely (no `Input`, no solver, no matrix work) — reads both JSONs, computes the diff, emits to stdout (or `--output` file). Mismatched flags return an input error.
+- All seven shipment-diff types per RFC §4.4.3: `unchanged`, `time_changed` (60 s threshold), `moved_vehicle`, `assigned_to_unassigned`, `unassigned_to_assigned`, `added_to_problem`, `removed_from_problem`.
+- Per-vehicle `route_diffs` (distance / duration / shipment-count / cost deltas) and top-level `summary_diff`.
+- `total_unassigned_change` counts DISTINCT shipments, not raw `unassigned[]` entries — the array contains both pickup and delivery entries for the same shipment and we skip deliveries to match the dispatcher's mental model.
+- Two fixture triples at `tests/fixtures/diff/` (`move-and-time`, `added-removed`) covering all seven diff types.
+- `scripts/test-diff.sh` — asserts each diff fixture matches its recorded expected via `jq -S` canonical compare.
+- `.github/workflows/fork-ci.yml` runs `test-diff.sh` alongside regression.
+- `docs/API.md` — new "Plan diff" section documenting CLI + HTTP mode + response shape + shipment-diff types + unassigned-counting rule.
+
+### Scope call: CLI ships, HTTP endpoint is follow-up
+The actual `POST /diff` endpoint lives in `vroom-express` (separate upstream repo at `VROOM-Project/vroom-express`). This PR ships the CLI and library function; vroom-express needs a small follow-up PR to route `/diff` POST requests to `bin/vroom --diff-before X --diff-after Y` (shell-out) or to call libvroom directly via N-API. Consumer integration on `backend-dispatch` is blocked on that upstream PR (or a local vroom-express fork), flagged in the M5 PR body.
+
+### Behavioral change (consumer-visible)
+New CLI invocation mode. Zero impact on existing `bin/vroom -i ...` solve behavior — the diff branch short-circuits before any solve machinery is touched.
+
+### Benchmark deltas (post-M5 vs pre-M5 baseline)
+No solve-pipeline changes. Synthetic-30 solves in ~63 ms median / ~69 ms p99 — within sandbox noise of M4 (77 / 93). Diff fixtures themselves run in single-digit ms (pure JSON parsing + hashmap lookups), well under the RFC §4.4.4 50 ms acceptance.
+
+### Risks and open items
+- **HTTP endpoint wiring.** Owed in vroom-express upstream. Until that lands, consumers must shell out to the CLI.
+- **Upstream RFCs for M1–M5 still owed.** Same fine-grained-PAT-scope blocker.
+- **Docker registry secrets still absent.** Still non-blocking per inbox #11 note; re-examine at consumer-deploy time.
+- **N-API alternative.** If shell-out per `/diff` request proves too slow under load, the alternative is exposing `compute_plan_diff` as a libvroom entry point with an N-API binding inside vroom-express. Deferred pending UAT numbers.
+
+### Notes for next milestone
+**All P0 complete.** Natural checkpoint per RFC §7:
+- L2 dev deploy of `v1.15.0-busportal.m5` image.
+- Real-data comparison on 14/17/19.04 dispatcher runs (per `ref/reports/vroom-fork-test-plan.md`).
+- Consumer PRs: M3 (delete `DispatchSharedPickupBatcher.php` + peel loop), M4 (delete `VroomClient::shiftRoutesLate`), M5 (consume diff output via vroom-express).
+- M6-M8 are P1. Owner decides whether to proceed straight through or pause for UAT. Either way, the fork's master is at a clean P0-complete release.
+
+Pre-merge sanity on any future feature branch: `make -C src -j && ./scripts/regression.sh tests/fixtures/regression && ./scripts/test-diff.sh && ./scripts/bench.sh tests/fixtures/regression`.
+
+---
+
+## Inbox directive — issue #11 "M5 kickoff — F4 plan diff endpoint" — 2026-04-18
+
+**Status**: complete
+**PR**: #12 (merged, `df0ffe28`); tag `v1.15.0-busportal.m5`
+**Summary**: Full M5 shipped on `feat/m5-plan-diff`. CLI mode + library function + two fixture triples + dedicated test script + CI wiring + docs. HTTP wiring in vroom-express is the next upstream step. Details in the M5 milestone section above.
