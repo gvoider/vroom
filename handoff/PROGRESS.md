@@ -120,3 +120,11 @@ No regression on `example-2`. Run-to-run noise dominates at this fixture size. R
   - Find where `unassigned` is populated today. Start with `src/utils/helpers.cpp` (`get_unassigned_jobs_from_ranks`) and trace backward to the rejection sites in `src/problems/*/` and the local-search rollback paths — those are the places that KNOW the reason but currently drop the information.
 - Implementation shape: add `UnassignedReason` enum + `std::string` helper; extend `Job` (or a sibling `UnassignedJob`) with an optional reason code + freeform detail; emit as `{ "reason": "capacity_exceeded", "detail": "pickup exceeds vehicle 3 capacity by 2" }`.
 - Sanity check on every feature branch: `make -C src -j && ./scripts/regression.sh tests/fixtures/regression && ./scripts/bench.sh tests/fixtures/regression`.
+
+---
+
+## Inbox directive — issue #2 "Read handoff branch and continue" — 2026-04-18
+
+**Status**: complete (directive satisfied; issue left open because PAT lacks the scope to close it or comment)
+**PR**: no code change — directive was to read protocol and continue milestone work.
+**Summary**: Read `handoff/AGENT-PROTOCOL.md` (incl. the refinement at `a7848cfe`), rebased this branch onto the new tip, and shipped M0 + M1 per the RFC plan. Attempted to close the issue with a summary comment per protocol rule 4; both `mcp__github__add_issue_comment` and direct PATCH via the session PAT returned `Resource not accessible by personal access token` / `by integration`. Owner action needed to grant Issues: Read and write scope to the fine-grained PAT so future sessions can close inbox issues themselves.
