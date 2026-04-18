@@ -168,19 +168,37 @@ Absent or empty means "not co-located."
 
 #### 4.1.3 Semantics
 
-When two or more pickup steps with the same `co_located_group` are on the same
-vehicle's route:
+The unit of deduplication is a **maximal consecutive run** of group members on
+a vehicle's route — i.e. the group members visited back-to-back with no
+non-group step between them. When two or more pickup steps with the same
+`co_located_group` form a consecutive run on one vehicle's route:
 
-1. **Their arrival times MUST be equal.** The solver treats them as a single arrival event.
-2. **Only ONE of the pickups' `service` times is charged to the route duration.** The
-   largest service value among group members served together is used.
-3. **Soft hint to the search**: the solver SHOULD prefer to co-locate group members
-   on one vehicle because it saves service time. No explicit new cost term needed —
-   the existing duration-minimizing objective already rewards this when service-time
-   deduplication applies.
-4. If group members end up on DIFFERENT vehicles, each is treated as an independent
-   pickup with its own service time. No penalty for splitting — we might have no
-   choice given capacity.
+1. **Their arrival times MUST be equal within the run.** The solver treats
+   the run as a single arrival event. When group members on the same
+   vehicle are NOT consecutive (a capacity constraint can force a delivery
+   between two group pickups, see the split example below), each
+   consecutive run deduplicates independently — there is no cross-run
+   arrival equalization because that would require moving the interleaved
+   step, which is not in scope for the fork.
+2. **The common arrival time MUST respect every group member's own
+   `time_windows[0].start`.** If the group's members have staggered
+   TW-starts, the run's common arrival is pushed forward to the latest
+   TW-start among them so no member arrives before its own hard window.
+3. **Only ONE of the pickups' `service` times is charged to the route
+   duration.** The largest service value among the run's members is used.
+   In the solution output that pooled service time is recorded on the
+   LAST member of the run (all other members carry `service: 0`), so the
+   upstream step-timing invariant
+   `arrival[k] - arrival[0] == duration[k] + cumulative(setup+service+waiting) before k`
+   continues to hold.
+4. **Soft hint to the search**: the solver SHOULD prefer to co-locate
+   group members on one vehicle because it saves service time. No
+   explicit new cost term is needed — the existing duration-minimizing
+   objective already rewards this when service-time deduplication
+   applies and the travel cost between same-location steps is zero.
+5. If group members end up on DIFFERENT vehicles, each is treated as an
+   independent pickup with its own service time. No penalty for
+   splitting — we might have no choice given capacity.
 
 Pickups in the same `co_located_group` MUST have the same `location` to within
 5 decimal places (~1.1 m). If they don't, the solver MUST reject the problem
