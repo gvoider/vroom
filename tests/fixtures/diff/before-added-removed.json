@@ -1,0 +1,20 @@
+{
+  "code": 0,
+  "summary": {"cost": 1000, "routes": 1, "unassigned": 0, "duration": 1000, "waiting_time": 0, "priority": 0, "violations": []},
+  "unassigned": [],
+  "routes": [
+    {
+      "vehicle": 1,
+      "cost": 1000,
+      "duration": 1000,
+      "distance": 5000,
+      "steps": [
+        {"type": "start", "arrival": 0, "duration": 0},
+        {"type": "pickup", "id": 777, "arrival": 100, "duration": 100, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "delivery", "id": 777, "arrival": 500, "duration": 500, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "end", "arrival": 1000, "duration": 1000}
+      ],
+      "setup": 0, "service": 0, "waiting_time": 0, "priority": 0, "violations": []
+    }
+  ]
+}

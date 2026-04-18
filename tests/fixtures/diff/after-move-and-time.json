@@ -1,0 +1,45 @@
+{
+  "code": 0,
+  "summary": {
+    "cost": 4500,
+    "routes": 2,
+    "unassigned": 0,
+    "duration": 4500,
+    "waiting_time": 0,
+    "priority": 0,
+    "violations": []
+  },
+  "unassigned": [],
+  "routes": [
+    {
+      "vehicle": 1,
+      "cost": 2500,
+      "duration": 2500,
+      "distance": 10000,
+      "steps": [
+        {"type": "start", "arrival": 0, "duration": 0},
+        {"type": "pickup", "id": 100, "arrival": 140100, "duration": 500, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "delivery", "id": 100, "arrival": 141000, "duration": 1400, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "end", "arrival": 141500, "duration": 2500}
+      ],
+      "setup": 0, "service": 0, "waiting_time": 0, "priority": 0, "violations": []
+    },
+    {
+      "vehicle": 2,
+      "cost": 2000,
+      "duration": 2000,
+      "distance": 9000,
+      "steps": [
+        {"type": "start", "arrival": 0, "duration": 0},
+        {"type": "pickup", "id": 101, "arrival": 140380, "duration": 500, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "pickup", "id": 200, "arrival": 140500, "duration": 620, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "pickup", "id": 300, "arrival": 140800, "duration": 920, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "delivery", "id": 101, "arrival": 141200, "duration": 1500, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "delivery", "id": 200, "arrival": 141400, "duration": 1700, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "delivery", "id": 300, "arrival": 141600, "duration": 1900, "service": 0, "waiting_time": 0, "setup": 0},
+        {"type": "end", "arrival": 141800, "duration": 2000}
+      ],
+      "setup": 0, "service": 0, "waiting_time": 0, "priority": 0, "violations": []
+    }
+  ]
+}

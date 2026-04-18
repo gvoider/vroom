@@ -1,0 +1,69 @@
+{
+    "shipment_diffs": [
+        {
+            "shipment_id": 100,
+            "type": "unchanged",
+            "before": {
+                "vehicle_id": 1,
+                "arrival": 140100
+            },
+            "after": {
+                "vehicle_id": 1,
+                "arrival": 140100
+            }
+        },
+        {
+            "shipment_id": 101,
+            "type": "moved_vehicle",
+            "before": {
+                "vehicle_id": 1,
+                "arrival": 140300
+            },
+            "after": {
+                "vehicle_id": 2,
+                "arrival": 140380
+            }
+        },
+        {
+            "shipment_id": 200,
+            "type": "time_changed",
+            "before": {
+                "vehicle_id": 2,
+                "arrival": 130000
+            },
+            "after": {
+                "vehicle_id": 2,
+                "arrival": 140500
+            }
+        },
+        {
+            "shipment_id": 300,
+            "type": "unassigned_to_assigned",
+            "after": {
+                "vehicle_id": 2,
+                "arrival": 140800
+            }
+        }
+    ],
+    "route_diffs": [
+        {
+            "vehicle_id": 1,
+            "distance_change_m": -2000,
+            "duration_change_seconds": -500,
+            "shipment_count_change": -1,
+            "cost_change": -500
+        },
+        {
+            "vehicle_id": 2,
+            "distance_change_m": 1000,
+            "duration_change_seconds": 0,
+            "shipment_count_change": 2,
+            "cost_change": 0
+        }
+    ],
+    "summary_diff": {
+        "total_cost_change": -500,
+        "total_distance_change_m": 0,
+        "total_unassigned_change": -1
+    }
+}

@@ -28,6 +28,8 @@ struct CLArgs {
   bool apply_TSPFix;       // -f
   bool geometry;           // -g
   bool diagnostics;        // -d, Busportal fork (M2 / F5)
+  std::string diff_before; // --diff-before, Busportal fork (M5 / F4)
+  std::string diff_after;  // --diff-after,  Busportal fork (M5 / F4)
   std::string input_file;  // -i
   Timeout timeout;         // -l
   std::string output_file; // -o
