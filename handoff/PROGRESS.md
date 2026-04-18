@@ -199,3 +199,13 @@ Classifier overhead is bounded by `O(|unassigned| × |vehicles|)` matrix lookups
   - Mock Valhalla matrices FIRST so we can bench the 10–50-shipment workload before landing algorithmic changes. The sandbox has no routing backend; without bench numbers we can't claim ≤ 500 ms median per the RFC performance floor.
 - Implementation shape: add optional `co_located_group` string to the pickup schema; at route-cost time, for each vehicle's route identify groups of steps sharing a group string and charge `max(service)` once per group instead of summing; enforce "same `co_located_group` implies same location within 1.1 m" at input validation.
 - Acceptance gate per RFC §4.1.7: median solve time on 30-shipment problems with 50% co-located stays under 500 ms; `co_location_savings_seconds` on `summary.computing_times` matches PHP-computed savings on regression fixtures.
+
+---
+
+## Inbox directive — issue #3 "Dockerfile: 5 build/runtime fixes found during L1 smoke test" — 2026-04-18
+
+**Status**: code fixes complete on branch; PR + issue-close blocked by PAT scope
+**PR**: not opened — PAT lacks Pull requests: Read and write. Branch pushed to `origin/agent/issue-3-dockerfile-fixes` (commit `fc3eccdd`). PR template URL: https://github.com/gvoider/vroom/compare/claude/busportal-dispatch-features-W1Uwk...agent/issue-3-dockerfile-fixes (owner must open manually). PR base should be `claude/busportal-dispatch-features-W1Uwk`, not `master`, because `docker/Dockerfile` lives on the feature branch until M0→M2 merge to master.
+**Summary**: Applied all six fixes from cyril's L1-smoke-test report verbatim. (1) base image bookworm-slim → trixie-slim for GCC 13+ (std::format); (2) VROOM_EXPRESS_VERSION v1.5.0 → v0.12.0 (real tag); (3) HUSKY=0 + --ignore-scripts on npm install; (4) new `.gitattributes` + `sed -i 's/\r$//'` belt-and-braces for CRLF-safe shebangs; (5) chown /opt/vroom-express to the unprivileged vroom user; (6) entrypoint now copies `/conf/config.yml` to `/opt/vroom-express/config.yml` (Option A) because vroom-express ignores `VROOM_CONFIG`. CHANGELOG.md Unreleased section documents all six under "Fixed". Sandbox has no Docker daemon so end-to-end build wasn't re-verified; CI's docker-image.yml is the first real integration surface.
+
+**Blocker (for both #2 and #3)**: the fine-grained PAT in the harness has Contents: Read+Write but no Issues: R+W and no Pull requests: R+W. Every non-git-push write to the GitHub API returns `Resource not accessible`. Adding those two scopes lets future sessions open PRs and close inbox issues directly per `handoff/AGENT-PROTOCOL.md` rule 4. Until then I can push branches and commits but the owner owns the PR open/close/comment steps.
