@@ -117,20 +117,31 @@ Rules:
    validation within ~1.1 m (5 decimal places). Mismatch is rejected
    with `code: 2`, message `co_located_group <name> members at different
    locations (pickup X vs pickup Y).`
-2. When group members end up as **consecutive** steps on one vehicle's
-   route, the post-solve pass equalizes their `arrival` times and
-   charges only `max(service)` across the group. The other members'
-   `service` is reported as 0.
-3. When group members end up on **different vehicles**, each route
+2. When group members form a **maximal consecutive run** on one vehicle's
+   route (back-to-back pickups sharing the same `co_located_group`), the
+   post-solve pass equalizes their `arrival` times and charges only
+   `max(service)` across the run. All members except the LAST one report
+   `service: 0`; the pooled max-service sits on the last member so the
+   upstream step-timing invariant
+   `arrival[k] - arrival[0] == duration[k] + cumulative(setup+service+waiting)<k`
+   continues to hold.
+3. The common arrival time respects every member's own
+   `time_windows[0].start`. When TW-starts are staggered, the run's
+   common arrival is pushed forward to the latest TW-start among them.
+4. When group members end up on **different vehicles**, each route
    charges its own dedup independently; there is no cross-vehicle
    saving.
-4. When group members end up on the same vehicle but with a
-   non-co-located step interleaved, the two runs dedup independently
-   (matches RFC §4.1 Example 2 semantics).
+5. When group members on the same vehicle are NOT consecutive (a
+   capacity constraint can force a delivery between two group pickups),
+   each consecutive run dedups independently — see RFC §4.1.3 for the
+   reasoning.
 
 The total deduped service time (in **seconds**) is reported in
 `summary.computing_times.co_location_savings_seconds`; `summary.service`
-and `summary.cost_breakdown.task` reflect the already-deduped totals.
+and `summary.cost_breakdown.task` reflect the already-deduped totals;
+`summary.cost_breakdown` is fully re-accumulated across all buckets
+(not just `task`) so the `sum(breakdown) == cost` invariant continues
+to hold when M4 and M8 populate the other buckets.
 
 Absent or empty `co_located_group` leaves behavior identical to mainline
 VROOM.

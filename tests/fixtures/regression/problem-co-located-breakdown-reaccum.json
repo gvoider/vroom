@@ -1,0 +1,49 @@
+{
+  "_comment": "Bug 4 (inbox #7) guard: three same-coord pickups + non-zero fixed_vehicle + per_hour (so `duration` bucket) + per_task_hour (so `task` bucket) + distance matrix (so `distance` bucket). Dedup touches `task` only; the other buckets must be re-accumulated on the summary, not left stale from pre-dedup.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "capacity": [10],
+      "costs": {
+        "fixed": 500,
+        "per_hour": 3600,
+        "per_km": 100,
+        "per_task_hour": 3600
+      }
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {"id": 201, "location_index": 1, "service": 300, "co_located_group": "stop:bd"},
+      "delivery": {"id": 201, "location_index": 2, "service": 0},
+      "amount": [1]
+    },
+    {
+      "pickup": {"id": 202, "location_index": 1, "service": 180, "co_located_group": "stop:bd"},
+      "delivery": {"id": 202, "location_index": 2, "service": 0},
+      "amount": [1]
+    },
+    {
+      "pickup": {"id": 203, "location_index": 1, "service": 120, "co_located_group": "stop:bd"},
+      "delivery": {"id": 203, "location_index": 2, "service": 0},
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 500, 900],
+        [500, 0, 400],
+        [900, 400, 0]
+      ],
+      "distances": [
+        [0, 6000, 12000],
+        [6000, 0, 4500],
+        [12000, 4500, 0]
+      ]
+    }
+  }
+}

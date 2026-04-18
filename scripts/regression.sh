@@ -99,6 +99,28 @@ for pfile in "$FIXTURES"/problem-*.json; do
     fi
   fi
 
+  # Step-timing invariant (M3 / F1, hardened in M3.1): for every step k
+  # in every route, `step.arrival - route.start.arrival ==
+  # step.duration + cumulative(setup+service+waiting) before k`. Catches
+  # the "arrival shifted but duration desynced" class of dedup bug.
+  timing_drift=$(echo "$actual" | jq -c '
+    def cumulated(arr): reduce range(arr|length) as $k ({sum:0, at:[]};
+      .at += [.sum] | .sum += arr[$k]);
+    [ .routes[] as $r
+      | ([$r.steps[] | (.setup // 0) + (.service // 0) + (.waiting_time // 0)]) as $non_travel
+      | cumulated($non_travel).at as $cum
+      | $r.steps[0].arrival as $start
+      | range(0; $r.steps|length) as $k
+      | ($r.steps[$k].arrival - $start) as $lhs
+      | ($r.steps[$k].duration + $cum[$k]) as $rhs
+      | ($lhs - $rhs) | fabs
+    ] | max // 0')
+  if [[ -n "$timing_drift" ]] && (( $(echo "$timing_drift > 0" | bc -l) )); then
+    echo "FAIL $label: step timing invariant violated; drift=$timing_drift" >&2
+    fail=$((fail + 1))
+    continue
+  fi
+
   # Cost-breakdown invariant (F3, added in M1): every component sums to
   # the route cost within one integer unit; the summary is the sum of
   # route breakdowns.
