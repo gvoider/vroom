@@ -370,6 +370,9 @@ rapidjson::Value to_json(const ComputingTimes& ct,
   json_ct.AddMember("loading", ct.loading, allocator);
   json_ct.AddMember("solving", ct.solving, allocator);
   json_ct.AddMember("routing", ct.routing, allocator);
+  json_ct.AddMember("co_location_savings_seconds",
+                    ct.co_location_savings_seconds,
+                    allocator);
 
   return json_ct;
 }

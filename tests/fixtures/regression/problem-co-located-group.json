@@ -1,0 +1,81 @@
+{
+  "_comment": "F1 co-located batch: 3 passengers at stop A, 1 at stop B; drop-off at C. Same per_task_hour so service time dedup produces measurable savings. Self-contained (embedded matrices).",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "capacity": [10],
+      "costs": {"fixed": 0, "per_hour": 3600, "per_task_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 11,
+        "location_index": 1,
+        "service": 300,
+        "co_located_group": "stop:A"
+      },
+      "delivery": {
+        "id": 11,
+        "location_index": 3,
+        "service": 0
+      },
+      "amount": [1]
+    },
+    {
+      "pickup": {
+        "id": 12,
+        "location_index": 1,
+        "service": 240,
+        "co_located_group": "stop:A"
+      },
+      "delivery": {
+        "id": 12,
+        "location_index": 3,
+        "service": 0
+      },
+      "amount": [1]
+    },
+    {
+      "pickup": {
+        "id": 13,
+        "location_index": 1,
+        "service": 180,
+        "co_located_group": "stop:A"
+      },
+      "delivery": {
+        "id": 13,
+        "location_index": 3,
+        "service": 0
+      },
+      "amount": [1]
+    },
+    {
+      "pickup": {
+        "id": 14,
+        "location_index": 2,
+        "service": 120,
+        "co_located_group": "stop:B"
+      },
+      "delivery": {
+        "id": 14,
+        "location_index": 3,
+        "service": 0
+      },
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 600, 900, 1200],
+        [600, 0, 300, 600],
+        [900, 300, 0, 500],
+        [1200, 600, 500, 0]
+      ]
+    }
+  }
+}

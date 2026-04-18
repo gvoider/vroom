@@ -14,6 +14,9 @@ check runs without a live router (no Valhalla, no OSRM).
 | `problem-unassigned-capacity.json` + diagnostics | Busportal fork, M2 | Job whose delivery exceeds every vehicle's capacity; expects `capacity_exceeded`. |
 | `problem-unassigned-skills.json` + diagnostics | Busportal fork, M2 | Job whose required skills no vehicle has; expects `no_vehicle_with_required_skills`. |
 | `problem-unassigned-tw.json` + diagnostics | Busportal fork, M2 | Job whose time window no vehicle can reach in time; expects `time_window_infeasible`. |
+| `problem-embedded-shipments-3.json` / `-4` / `-5` | Busportal handoff, M3 prep | Real Lviv dispatch shipments with Valhalla-derived matrices embedded so the harness works offline. Source: `handoff/vroom-fork-fixtures/` on `handoff/initial-briefing`. |
+| `problem-co-located-group.json` | Busportal fork, M3 | 3 pickups at stop A + 1 at stop B; exercises F1 service-time dedup when all land on one vehicle consecutively. |
+| `problem-co-located-split.json` | Busportal fork, M3 | 4 pickups at one stop with a capacity limit that forces `pickup-pickup-delivery-delivery-pickup-pickup-delivery-delivery`; exercises per-run dedup on a single vehicle with two co-located runs. |
 
 ## Diagnostics expectations
 

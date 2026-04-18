@@ -626,6 +626,8 @@ void parse(Input& input,
       auto& json_pickup = json_shipment["pickup"];
       check_id(json_pickup, "pickup");
 
+      auto co_located_group = get_string(json_pickup, "co_located_group");
+
       const Job pickup(json_pickup["id"].GetUint64(),
                        JOB_TYPE::PICKUP,
                        get_task_location(json_pickup, "pickup"),
@@ -641,7 +643,8 @@ void parse(Input& input,
                                              "pickup"),
                        get_duration_per_type(json_pickup,
                                              "service_per_type",
-                                             "pickup"));
+                                             "pickup"),
+                       std::move(co_located_group));
 
       // Defining delivery job.
       auto& json_delivery = json_shipment["delivery"];

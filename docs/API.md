@@ -98,8 +98,42 @@ A `shipment_step` is similar to a `job` object (expect for shared keys already p
 | [`setup_per_type`] | object mapping vehicle types to task setup duration values |
 | [`service_per_type`] | object mapping vehicle types to task service duration values |
 | [`time_windows`] | an array of `time_window` objects describing valid slots for task service start |
+| [`co_located_group`] | *pickup only, Busportal fork M3 / F1.* Non-empty string tagging the pickup as sharing a physical stop with others carrying the same tag. See below. |
 
 An error is reported if two `delivery` (resp. `pickup`) objects have the same `id`.
+
+### `co_located_group` (Busportal fork, M3)
+
+Tagging pickups with a shared `co_located_group` string is the native way
+to express "these passengers board at the same stop; when they end up on
+the same vehicle, charge service time once and treat arrivals as a single
+event". It replaces the consumer-side `DispatchSharedPickupBatcher`
+preprocessing.
+
+Rules:
+
+1. Same non-empty `co_located_group` on two or more pickups ⇒ they must
+   share the same `location` (or `location_index`). Enforced at input
+   validation within ~1.1 m (5 decimal places). Mismatch is rejected
+   with `code: 2`, message `co_located_group <name> members at different
+   locations (pickup X vs pickup Y).`
+2. When group members end up as **consecutive** steps on one vehicle's
+   route, the post-solve pass equalizes their `arrival` times and
+   charges only `max(service)` across the group. The other members'
+   `service` is reported as 0.
+3. When group members end up on **different vehicles**, each route
+   charges its own dedup independently; there is no cross-vehicle
+   saving.
+4. When group members end up on the same vehicle but with a
+   non-co-located step interleaved, the two runs dedup independently
+   (matches RFC §4.1 Example 2 semantics).
+
+The total deduped service time (in **seconds**) is reported in
+`summary.computing_times.co_location_savings_seconds`; `summary.service`
+and `summary.cost_breakdown.task` reflect the already-deduped totals.
+
+Absent or empty `co_located_group` leaves behavior identical to mainline
+VROOM.
 
 ## Vehicles
 

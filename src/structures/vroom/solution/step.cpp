@@ -32,7 +32,8 @@ Step::Step(const Job& job,
     setup(setup),
     service(service),
     load(std::move(load)),
-    description(job.description) {
+    description(job.description),
+    co_located_group(job.co_located_group) {
 }
 
 Step::Step(const Break& b, Amount load)
