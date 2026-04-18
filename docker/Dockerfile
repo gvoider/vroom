@@ -7,8 +7,8 @@
 # vroom-docker so the image is a drop-in replacement for the consumer
 # service at http://vroom:3000/.
 
-ARG DEBIAN_TAG=bookworm-slim
-ARG VROOM_EXPRESS_VERSION=v1.5.0
+ARG DEBIAN_TAG=trixie-slim
+ARG VROOM_EXPRESS_VERSION=v0.12.0
 
 FROM debian:${DEBIAN_TAG} AS build
 
@@ -56,13 +56,19 @@ RUN useradd --system --create-home --shell /usr/sbin/nologin vroom
 COPY --from=build /src/bin/vroom /usr/local/bin/vroom
 
 # Pin vroom-express to a known-good tag; upstream maintains matching releases.
+# `HUSKY=0` + `--ignore-scripts` avoids the husky `prepare` hook that fails on
+# shallow clones (no .git dir to install hooks into).
 RUN git clone --depth 1 --branch "${VROOM_EXPRESS_VERSION}" \
       https://github.com/VROOM-Project/vroom-express /opt/vroom-express \
  && cd /opt/vroom-express \
- && npm install --omit=dev
+ && HUSKY=0 npm install --omit=dev --ignore-scripts \
+ && chown -R vroom:vroom /opt/vroom-express
 
 COPY docker/entrypoint.sh /usr/local/bin/vroom-entrypoint
-RUN chmod +x /usr/local/bin/vroom-entrypoint
+# Strip Windows CRLF in case the checkout came from a core.autocrlf=true clone
+# and restore the executable bit.
+RUN sed -i 's/\r$//' /usr/local/bin/vroom-entrypoint \
+ && chmod +x /usr/local/bin/vroom-entrypoint
 
 USER vroom
 WORKDIR /opt/vroom-express
