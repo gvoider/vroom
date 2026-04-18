@@ -128,3 +128,74 @@ No regression on `example-2`. Run-to-run noise dominates at this fixture size. R
 **Status**: complete (directive satisfied; issue left open because PAT lacks the scope to close it or comment)
 **PR**: no code change — directive was to read protocol and continue milestone work.
 **Summary**: Read `handoff/AGENT-PROTOCOL.md` (incl. the refinement at `a7848cfe`), rebased this branch onto the new tip, and shipped M0 + M1 per the RFC plan. Attempted to close the issue with a summary comment per protocol rule 4; both `mcp__github__add_issue_comment` and direct PATCH via the session PAT returned `Resource not accessible by personal access token` / `by integration`. Owner action needed to grant Issues: Read and write scope to the fine-grained PAT so future sessions can close inbox issues themselves.
+
+---
+
+## Milestone M2 — F5 structured unassigned-reason diagnostics — 2026-04-18
+
+**Status**: complete
+**Commits**: pushed to `claude/busportal-dispatch-features-W1Uwk` — `c8d1521d` ("M2 (F5): structured unassigned-reason diagnostics", 27 files, ~+620 LoC net).
+**Upstream issue/PR**: not opened — same MCP-scope blocker as M1. Suggested title: *"RFC: structured `unassigned[i].reason` with stable reason codes"*.
+
+### What shipped
+- `src/structures/vroom/solution/unassigned_info.h` — `UnassignedReason` enum (`no_vehicle_with_required_skills`, `capacity_exceeded`, `time_window_infeasible`, `max_travel_time_exceeded`, `route_duration_limit_exceeded`, `no_feasible_insertion`) + `UnassignedDetails` struct (optional per-code fields) + `to_string()` helper.
+- `src/utils/unassigned_classifier.{h,cpp}` — `utils::classify_unassigned(Input&, unassigned_jobs)` returns a parallel `std::vector<UnassignedInfo>`. Checks fire in the order above; the first one that eliminates every vehicle wins.
+- `Solution::unassigned_info` populated only when `Input::diagnostics()` is on. Both CVRP and VRPTW `format_solution` paths call the classifier.
+- CLI `-d` / `--diagnostics` flag wired through `cl_args.h`, `main.cpp`, `io::parse`, and `Input::set_diagnostics()`.
+- `to_json(const UnassignedDetails&, …)` overload in `output_json.{h,cpp}`; `reason` + `details` emitted on each `unassigned[]` entry only when diagnostics are on.
+- `scripts/regression.sh` now supports `fixtures/diagnostics/<label>.json` expectation files: when present, re-runs with `-d` and asserts per-id reason codes.
+- Three new self-contained regression fixtures with matching diagnostics expectations: `problem-unassigned-capacity.json` (`capacity_exceeded`), `problem-unassigned-skills.json` (`no_vehicle_with_required_skills`), `problem-unassigned-tw.json` (`time_window_infeasible`).
+- `docs/API.md` — new "Unassigned reasons" subsection.
+- `CHANGELOG.md` — Unreleased → M2 entry.
+- `bench-baselines/bench-post-m2.csv` — no regression on the pre-existing fixtures; the three new unassigned fixtures run ≤ 9 ms p99.
+
+### Behavioral change (consumer-visible)
+With `-d`, each unassigned entry gains:
+
+```json
+{
+  "id": 42, "type": "pickup",
+  "reason": "time_window_infeasible",
+  "details": {
+    "earliest": 140100, "latest": 140400,
+    "closest_feasible_vehicle": 3,
+    "closest_feasible_arrival": 141000,
+    "shortfall_seconds": 600
+  }
+}
+```
+
+Without `-d`, output shape is byte-identical to mainline. Consumer opts in per-request, matching the RFC's `?diagnostics=full` contract.
+
+Consumer unlock: `backend-dispatch DispatchDiagnostician::classifyOne` (~80 LoC PHP string-matching) can be reduced to a thin reason-code → user-hint translator (~30 LoC) in the next consumer PR.
+
+### Benchmark deltas (vs. post-M1 baseline)
+
+| Fixture | Median ms (before / after) | P99 ms (before / after) |
+|---|---|---|
+| `example-2` | 3 / 3 | 5 / 6 |
+| `cost-breakdown` | 0 / 0 | 1 / 0 |
+| `custom-cost-matrix` | — / 0 | — / 1 |
+| `unassigned-capacity` (new) | — / 7 | — / 9 |
+| `unassigned-skills` (new) | — / 7 | — / 8 |
+| `unassigned-tw` (new) | — / 7 | — / 9 |
+
+Classifier overhead is bounded by `O(|unassigned| × |vehicles|)` matrix lookups — trivial at Busportal's scale (10–50 shipments, 1–3 vehicles). The ≤ 9 ms on the new fixtures is dominated by solver setup, not classification.
+
+### Risks and open items
+- **Valhalla mock still not set up.** Same blocker carried from M0/M1. Doesn't bite M2; will bite M3.
+- **Docker registry secrets.** Still absent; `docker-image.yml` still builds-only.
+- **Upstream RFC issues.** Two owed (M1 + M2). Same PAT/scope constraint.
+- **`no_feasible_insertion` is a truthful fallback but a weak signal.** The classifier says "job could fit on at least one vehicle alone but the full search couldn't place it." A proper diagnosis would surface which candidate routes would have accepted the job absent competition. Deferred pending dispatcher UAT — if this code shows up too often to be useful, add a "best_alternative_vehicle" hint in a follow-up.
+- **HTTP opt-in path.** The `-d` flag works at CLI. `vroom-express` (the HTTP wrapper, separate upstream repo) needs a small change to pass `diagnostics: true` from request body through to the binary. Flagged for the consumer-integration PR; not blocking the M2 merge.
+- **Time-window classification pivots on the vehicle's start TW.** Deployments that rely on `steps[]` or mid-route waypoints for ETA feasibility aren't modelled. All currently-failing such paths fall through to `no_feasible_insertion` — correct but less informative. Follow-up if UAT asks.
+
+### Notes for next milestone
+- **M3 = F1 native co-located shared-stop batching** (~2.5 weeks per RFC §7 — the single biggest milestone). Deletes ~540 LoC of consumer code (`DispatchSharedPickupBatcher.php` + peel-off loop).
+- Pre-work before writing C++:
+  - Open upstream issue *"RFC: native co-located shared-stop batching"* on `VROOM-Project/vroom`.
+  - Re-read RFC §4.1 carefully — this is an algorithmic feature, not accounting. Changes how routes cost the *same* stop visited by multiple co-located pickups (charge service time once, keep arrival times equal within the group).
+  - Identify where `service` time flows into route cost (`vehicle::task_cost()` consumers in `helpers.cpp` + `choose_ETA.cpp`); where arrival times are constrained equal within a step list; where new-job insertion operators would need to know two jobs "share" a stop.
+  - Mock Valhalla matrices FIRST so we can bench the 10–50-shipment workload before landing algorithmic changes. The sandbox has no routing backend; without bench numbers we can't claim ≤ 500 ms median per the RFC performance floor.
+- Implementation shape: add optional `co_located_group` string to the pickup schema; at route-cost time, for each vehicle's route identify groups of steps sharing a group string and charge `max(service)` once per group instead of summing; enforce "same `co_located_group` implies same location within 1.1 m" at input validation.
+- Acceptance gate per RFC §4.1.7: median solve time on 30-shipment problems with 50% co-located stays under 500 ms; `co_location_savings_seconds` on `summary.computing_times` matches PHP-computed savings on regression fixtures.
