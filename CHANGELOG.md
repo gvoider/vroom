@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added (Busportal fork — M0 scaffolding)
+
+- `scripts/bench.sh` — per-fixture solve-time harness (median / p99 over N runs, CSV output). See `handoff/vroom-fork-bench.md` on the `handoff/initial-briefing` branch.
+- `scripts/regression.sh` — compares fork solutions against recorded `solution-*.json` cost/routes/unassigned. Exits non-zero on drift.
+- `tests/fixtures/regression/` — self-contained problem/solution pair (from upstream `docs/example_2.json`) used by the CI regression job; no router required.
+- `docker/Dockerfile` + `docker/entrypoint.sh` — two-stage image bundling the fork binary with `vroom-express`. Listens on `:3000`, mounts `/conf/config.yml` if present.
+- `.github/workflows/fork-ci.yml` — runs regression + bench on every fork push / PR.
+- `.github/workflows/docker-image.yml` — builds and pushes to `registry.gitlab.itnet.lviv.ua/busportal/backend/vroom-fork` on master / tag; builds-only when registry secrets are absent.
+
 ### Fixed
 
 #### Internals

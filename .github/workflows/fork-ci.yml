@@ -1,0 +1,45 @@
+name: fork-ci
+
+# Fork-specific CI. Runs on top of upstream's `vroom.yml` build matrix and
+# adds the regression + benchmark harness described in
+# handoff/vroom-fork-bench.md.
+#
+# Runs on our feature branches so that every milestone PR has a fresh
+# pass/fail signal before merging into master.
+
+on:
+  push:
+    branches:
+      - master
+      - 'claude/**'
+      - 'feat/**'
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasio-dev libglpk-dev jq
+      - name: Build vroom
+        run: make -C src -j
+      - name: Self-contained regression
+        run: ./scripts/regression.sh tests/fixtures/regression
+      - name: Bench self-contained fixtures
+        run: ./scripts/bench.sh tests/fixtures/regression | tee bench.csv
+      - name: Upload bench artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fork-ci-bench
+          path: bench.csv

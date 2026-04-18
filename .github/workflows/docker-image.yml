@@ -1,0 +1,68 @@
+name: docker-image
+
+# Builds the fork Docker image per handoff/vroom-fork-env.md §5 and pushes
+# to our GitLab registry on master pushes and tagged releases.
+#
+# Requires two GitHub repo secrets (created out-of-band by the project
+# owner):
+#   GITLAB_REGISTRY_USER   — GitLab deploy-token username
+#   GITLAB_REGISTRY_TOKEN  — deploy token with write_registry scope
+#
+# When the secrets are absent (e.g. fork PR from a contributor), the job
+# still builds the image locally as a smoke test but skips the push.
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+    paths:
+      - 'docker/**'
+      - 'src/**'
+      - '.github/workflows/docker-image.yml'
+
+env:
+  REGISTRY: registry.gitlab.itnet.lviv.ua
+  IMAGE: registry.gitlab.itnet.lviv.ua/busportal/backend/vroom-fork
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check registry secrets
+        id: secrets
+        run: |
+          if [[ -n "${{ secrets.GITLAB_REGISTRY_USER }}" && -n "${{ secrets.GITLAB_REGISTRY_TOKEN }}" ]]; then
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Registry secrets not configured; building without push."
+          fi
+
+      - name: Login to GitLab registry
+        if: steps.secrets.outputs.push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GITLAB_REGISTRY_USER }}
+          password: ${{ secrets.GITLAB_REGISTRY_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: ${{ steps.secrets.outputs.push == 'true' }}
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
