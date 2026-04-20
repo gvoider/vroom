@@ -503,3 +503,57 @@ Will start M8 on the next handoff unless owner overrides.
 **Status**: complete
 **PR**: #14 (merged, `6e52a13d`); tag `v1.15.0-busportal.m6`
 **Summary**: Full M6 shipped on `feat/m6-counterfactual`. CLI mode + library + 5 fixtures (one per what_if kind) + test script + CI wiring + docs. M7/M8 sequence proposal (M8 first, M7 second, "skip M7" kept as post-M8 decision) recorded in the M6 milestone section above.
+
+---
+
+## Milestone M8 — F8 published-vehicle soft stability — 2026-04-20
+
+**Status**: complete, PR open, awaiting review/merge.
+**Commits**: `ee80727e` on `feat/m8-published-vehicle` (17 files, +483 / −13 LoC); [PR #16](https://github.com/gvoider/vroom/pull/16) targeting `master`.
+**Upstream RFC/PR**: not opened (same PAT scope blocker as M1–M6).
+
+### What shipped
+- Optional shipment-level `published_vehicle` (Id) + `published_vehicle_cost` (UserCost) in the input JSON. Parsed via `get_published_vehicle()` in `src/utils/input_parser.cpp`; stamped on BOTH the pickup and delivery Job (`Job::published_vehicle`, `Job::published_vehicle_cost` in `src/structures/vroom/job.{h,cpp}`) so lookups are symmetric. Standalone `published_vehicle_cost` without `published_vehicle` is rejected to prevent silent no-op.
+- `Input::check_published_vehicles()` in `src/structures/vroom/input/input.cpp` rejects any hint whose id doesn't appear in `vehicles[]` with `code: 2`.
+- `utils::apply_published_vehicle_pass()` at `src/utils/published_vehicle_pass.{h,cpp}` — post-solve pass. Walks each route, counts once per shipment via the pickup step, charges `published_vehicle_cost` into `route.cost_breakdown.published_vehicle_deviation` + `route.cost` when `assigned_vehicle != published_vehicle`. Re-accumulates `summary` so the M1 sum-equals-cost invariant keeps holding. `published_vehicle_deviation` bucket placeholder from M1 is now live. Wired into `Input::solve()` AFTER the M4 soft-TW pass.
+- Two self-contained regression fixtures: `problem-published-vehicle-match.json` (hint hits sole vehicle → deviation 0, cost 1700) and `problem-published-vehicle-deviation.json` (capacity-0 hint vehicle forces assignment to vehicle 1 → deviation 500, cost 2200).
+- Validation-rejection fixture `tests/fixtures/validation/problem-published-vehicle-reject.json` covering the non-existent-id path.
+- `docs/API.md` — new `published_vehicle` subsection next to `soft_time_window`; shipment-fields table + `cost_breakdown` cell updated. `CHANGELOG.md` Unreleased → M8 entry. `cost_breakdown.h` placeholder comment updated to reflect that only `priority_bias` remains zero.
+
+### Behavioral change (consumer-visible)
+Two new optional shipment keys (`published_vehicle`, `published_vehicle_cost`). `cost_breakdown.published_vehicle_deviation` now non-zero when a hint is present and the assignment deviates. Output shape unchanged when no hint is set — byte-identical to mainline on M1-baseline fixtures.
+
+### Design choices — post-solve attribution only
+Critical scope decision: the solver picks routes using mainline cost. M8 is visibility + tunable cost, NOT solver-side steering. Zero solve-time regression (full no-op when no shipment carries a hint). Stays inside the RFC §5.8.5 budget.
+
+Trade-off: the RFC's "stability when free, optimization when worth the reshuffle" trade-off only kicks in once the solver sees the penalty during search. This PR does NOT wire the cost into the local-search hot path (`try_job_additions` and the cost-delta operators). Rationale:
+- The owner's M8 directive said "design mirror of M4" — M4 was post-solve attribution, so this is the mirror pattern.
+- Modifying every relocate / pd_shift / cross_exchange operator to include the penalty is a large, risky diff that almost certainly blows the 15% solve-time budget.
+- The `published_vehicle_cost` value is tunable consumer-side without fork changes — dispatcher UAT can turn it up / down to probe whether even retrospective visibility is enough to help the human read the plan.
+
+Carried as a follow-up (documented in CHANGELOG + pass docstring + docs/API.md): if UAT shows the deviation bucket alone doesn't stabilize re-solves (i.e. the chaotic shuffle complaint persists), a future milestone can wire the cost into the solver hot path.
+
+### De-dup approach
+Pickup + delivery Jobs both carry the hint. The pass only attributes on `STEP_TYPE::JOB + JOB_TYPE::PICKUP` so a shipment's penalty is charged exactly once per route. This matches how `soft_time_window_pass` disambiguates pickup vs delivery via `pickup_id_to_rank` / `delivery_id_to_rank`.
+
+### Ordering
+Passes in `Input::solve()` now run: `apply_co_location_dedup` (M3) → `apply_soft_time_window_pass` (M4) → `apply_published_vehicle_pass` (M8). Each pass re-accumulates summary from routes, so order matters only insofar as each pass must see the previous one's route-level mutations. M8 runs last so summary's `published_vehicle_deviation` reflects final route costs after the M4 delay-based shifts.
+
+### Risks and open items
+- **Owner UAT is the acceptance gate.** The scope decision above is the biggest thing to validate. If dispatchers still see "confirmed passengers reshuffling" after the M8 image ships and the hint is wired in the consumer, we escalate to solver-awareness in a follow-up.
+- **HTTP endpoint wiring still owed in vroom-express** for M5 `/diff` and M6 `/counterfactual` (unchanged from M6 report).
+- **Upstream RFCs owed** across M1+M2+M3+M4+M5+M6+M8 — same PAT scope blocker.
+- **GitLab Docker registry secrets still absent.** Recommend tagging `v1.15.0-busportal.m8` on the merge commit and rebuilding / pushing the image manually like `…m5`, then flipping the dev K8s `vroom-fork` deployment to the new tag for UAT.
+
+### Notes for next step
+- If owner confirms M8 scope is acceptable → merge PR #16, tag `v1.15.0-busportal.m8`, hand off to UAT per the `vroom-fork-test-plan.md` 14.04 / 17.04 / 19.04 dispatch days called out in issue #15.
+- **M7 (F7 driver shifts/breaks) stays on the "maybe skip" shelf** per the M6 proposal. Decide post-UAT: if M8 covers the shuffle complaint, M7 is optional and the roadmap can close. If a new stability/shift issue surfaces, M7 re-opens.
+- Pre-merge sanity (on the PR): `make -C src -j && ./scripts/regression.sh tests/fixtures/regression && ./scripts/test-diff.sh && ./scripts/test-counterfactual.sh && ./scripts/bench.sh tests/fixtures/regression` — all wired into `fork-ci.yml` and gate the PR.
+
+---
+
+## Inbox directive — issue #15 "M8 kickoff — F8 published-vehicle soft stability" — 2026-04-20
+
+**Status**: complete
+**PR**: [#16](https://github.com/gvoider/vroom/pull/16) open; `feat/m8-published-vehicle` commit `ee80727e`. Tag `v1.15.0-busportal.m8` to land on merge commit.
+**Summary**: Full M8 shipped as a post-solve attribution pass — mirror of M4 pattern the owner accepted in #15. Schema parsed, validator added, `published_vehicle_deviation` bucket populated, two regression fixtures + one validation fixture, docs + CHANGELOG updated. Scope decision (post-solve-only, solver-awareness deferred to UAT-contingent follow-up) documented in the PR body, `docs/API.md § published_vehicle`, and CHANGELOG so reviewers see the trade-off explicitly. Closing #15 with the PR link + non-blocking items carried forward (M7 still on the shelf, vroom-express wiring still owed for M5/M6, GitLab registry secrets still absent).
