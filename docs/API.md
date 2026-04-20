@@ -298,6 +298,95 @@ entries. A shipment contributes both a pickup and a delivery entry to
 the array; the diff treats the pickup (or single-job) side as canonical
 and skips deliveries to avoid double-counting.
 
+## Counterfactual (Busportal fork, M6 / F6)
+
+Dispatcher "what if" mode — run two solves of a problem (baseline as
+given, plus a variant with one transformation applied) and return
+both solutions, a plan diff, and a short improvement summary. See
+RFC §5.6.
+
+### CLI mode
+
+```bash
+bin/vroom --counterfactual -i path/to/envelope.json
+```
+
+The input file is the RFC §5.6.2 envelope:
+
+```json
+{
+  "problem": { ...full VROOM problem JSON... },
+  "what_if": {
+    "add_vehicles":      [ { ...vehicle... } ],
+    "remove_vehicles":   [ 3 ],
+    "relax_time_windows": [
+      { "shipment_id": 42, "step": "pickup", "delta_seconds": 600 }
+    ],
+    "add_shipments":     [ { ...shipment... } ],
+    "remove_shipments":  [ 99 ]
+  }
+}
+```
+
+### First-one-wins enumeration
+
+Exactly one `what_if` transformation is applied per request. When
+multiple keys are present the first one in this order wins; the rest
+are silently ignored and the `improvement.applied_what_if` field
+records which key was used.
+
+```
+add_vehicles → remove_vehicles → relax_time_windows → add_shipments → remove_shipments
+```
+
+### HTTP mode (vroom-express routing)
+
+`POST /counterfactual` routes to the CLI via `vroom-express`, same
+pattern as `/diff`. The upstream PR against `vroom-express` is a
+separate follow-up.
+
+### Response shape
+
+```json
+{
+  "baseline_solution": { ...full VROOM solution... },
+  "modified_solution": { ...full VROOM solution... },
+  "diff": { ...same shape as `/diff`... },
+  "improvement": {
+    "additional_assigned":       2,
+    "cost_change":              -1200,
+    "new_total_cost":            11250,
+    "solve_time_ms_baseline":    180,
+    "solve_time_ms_modified":    220,
+    "applied_what_if":           "add_vehicles"
+  }
+}
+```
+
+`improvement.additional_assigned` counts DISTINCT shipments (same
+dedup rule as `summary_diff.total_unassigned_change` — pickup-side is
+canonical). Negative values mean the what_if reduced served
+shipments (e.g. `remove_vehicles` forcing jobs off a tight plan).
+
+### Each `what_if` key
+
+| Key | Payload | Semantics |
+|---|---|---|
+| `add_vehicles` | array of vehicle objects | Appended to `problem.vehicles` before the modified solve. |
+| `remove_vehicles` | array of vehicle ids | Vehicles with those ids are filtered out of `problem.vehicles`. |
+| `relax_time_windows` | array of `{shipment_id, step, delta_seconds}` | For each entry, every `time_window` on the matching `step` is expanded by `delta_seconds` in both directions (lower bound capped at 0). |
+| `add_shipments` | array of shipment objects | Appended to `problem.shipments`. |
+| `remove_shipments` | array of pickup ids | Shipments whose pickup id matches are filtered out. |
+
+### Performance
+
+RFC §5.6.3 caps total wall-clock at 2× a single solve. On the
+self-contained fixtures here each solve runs in single-digit to
+low-tens of milliseconds; the counterfactual stays well inside that
+budget. If you need an even tighter bound, cache the baseline solve
+across consecutive what-ifs against the same problem — the current CLI
+mode re-solves both sides every call.
+
 ## Vehicles
 
 A `vehicle` object has the following properties:

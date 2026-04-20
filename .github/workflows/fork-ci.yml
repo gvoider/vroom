@@ -38,6 +38,8 @@ jobs:
         run: ./scripts/regression.sh tests/fixtures/regression
       - name: Plan-diff fixtures (Busportal fork, M5 / F4)
         run: ./scripts/test-diff.sh tests/fixtures/diff
+      - name: Counterfactual fixtures (Busportal fork, M6 / F6)
+        run: ./scripts/test-counterfactual.sh tests/fixtures/counterfactual
       - name: Bench self-contained fixtures
         run: ./scripts/bench.sh tests/fixtures/regression | tee bench.csv
       - name: Upload bench artifact

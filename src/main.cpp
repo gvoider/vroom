@@ -22,6 +22,7 @@ All rights reserved (see LICENSE).
 #include "utils/helpers.h"
 #include "utils/input_parser.h"
 #include "utils/output_json.h"
+#include "utils/counterfactual.h"
 #include "utils/plan_diff.h"
 #include "utils/version.h"
 
@@ -66,6 +67,10 @@ int main(int argc, char** argv) {
     ("diff-after",
      "plan-diff mode: `after` solution JSON file (Busportal fork, M5 / F4)",
      cxxopts::value<std::string>(cl_args.diff_after)->default_value(""))
+    ("counterfactual",
+     "counterfactual mode: -i input must be {problem, what_if} "
+     "(Busportal fork, M6 / F6)",
+     cxxopts::value<bool>(cl_args.counterfactual)->default_value("false"))
     ("h,help", "display this help and exit")
     ("i,input",
      "read input from a file rather than from stdin",
@@ -242,6 +247,20 @@ int main(int argc, char** argv) {
     std::stringstream buffer;
     buffer << std::cin.rdbuf();
     cl_args.input = buffer.str();
+  }
+
+  // Busportal fork, M6 / F6. Counterfactual mode: input is
+  // `{problem, what_if}`; run two solves + compose response.
+  if (cl_args.counterfactual) {
+    try {
+      const auto doc = vroom::io::run_counterfactual(cl_args.input, cl_args);
+      vroom::io::write_counterfactual(doc, cl_args.output_file);
+      exit(0);
+    } catch (const vroom::Exception& exc) {
+      std::cerr << "[Error] " << exc.message << std::endl;
+      vroom::io::write_to_json(exc, cl_args.output_file);
+      exit(exc.error_code);
+    }
   }
 
   try {

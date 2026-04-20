@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added (Busportal fork — M6, F6 counterfactual mode)
+
+- New CLI mode `bin/vroom --counterfactual -i envelope.json` reads a `{problem, what_if}` envelope, runs the baseline and modified solves in series, and emits an RFC §5.6.2-shaped response with `baseline_solution`, `modified_solution`, `diff`, and `improvement`.
+- `vroom::io::run_counterfactual()` library function at `src/utils/counterfactual.{h,cpp}`. Reuses `compute_plan_diff` from M5 for the diff field — zero re-implementation.
+- Five `what_if` transformations supported per RFC §5.6.2: `add_vehicles`, `remove_vehicles`, `relax_time_windows`, `add_shipments`, `remove_shipments`. Applied in that enumeration order; first-one-wins. `improvement.applied_what_if` records which key won so the dispatcher UI can sanity-check.
+- `improvement.additional_assigned` uses the same distinct-shipment dedup as M5's diff counters. Negative values are possible and semantically correct (e.g. `remove_vehicles` making a tight plan tighter).
+- Five fixture envelopes at `tests/fixtures/counterfactual/`, one per `what_if` kind.
+- `scripts/test-counterfactual.sh` asserts output shape, `applied_what_if` matches the fixture's declared what_if, `new_total_cost` matches `modified_solution.summary.cost`, `cost_change` matches `diff.summary_diff.total_cost_change`, and both solve times stay < 500 ms. Wired into `.github/workflows/fork-ci.yml`.
+- `docs/API.md` — new "Counterfactual" section documenting CLI + HTTP mode + envelope + first-one-wins + each `what_if` kind + performance.
+
+Design:
+- **Same CLI-first pragmatism as M5.** The `POST /counterfactual` HTTP endpoint lives in `vroom-express` (separate upstream repo); shell-out to the CLI is the interim. Follow-up vroom-express PR is out of scope here.
+- **Dual-solve composition over re-implementation.** The counterfactual is `parse → solve → apply_what_if → parse → solve → compute_plan_diff → compose`, not a new optimization pass. Reuses the whole M0–M5 stack as library components. Keeps the diff-shape contract identical whether the consumer calls `/diff` directly or via a counterfactual.
+- **No routing / matrix mutation in what_if.** Transformations only touch the problem JSON the solver receives — vehicle / shipment lists, time-window widenings. Don't change the matrix or the routing engine config; that would expand blast radius without clear dispatcher need.
+- **Problem JSON is mutated at the rapidjson::Document level**, not via a re-parse into `Input`. Cheaper and simpler for add/remove/filter/widen operations.
+
 ### Added (Busportal fork — M5, F4 plan diff endpoint)
 
 - New CLI mode `bin/vroom --diff-before BEFORE.json --diff-after AFTER.json` bypasses the solve pipeline entirely, reads two VROOM solution JSONs, and emits a structured diff matching RFC §4.4. Exits 0 on success; non-zero on malformed input.
