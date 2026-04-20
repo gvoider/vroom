@@ -442,3 +442,64 @@ Pre-merge sanity on any future feature branch: `make -C src -j && ./scripts/regr
 **Status**: complete
 **PR**: #12 (merged, `df0ffe28`); tag `v1.15.0-busportal.m5`
 **Summary**: Full M5 shipped on `feat/m5-plan-diff`. CLI mode + library function + two fixture triples + dedicated test script + CI wiring + docs. HTTP wiring in vroom-express is the next upstream step. Details in the M5 milestone section above.
+
+---
+
+## Milestone M6 — F6 counterfactual mode — 2026-04-18
+
+**Status**: complete, merged, tagged.
+**Commits**: PR #14 merged at `6e52a13d` on `master`; tag `v1.15.0-busportal.m6`.
+**Upstream RFC/PR**: not opened (same fine-grained PAT scope blocker).
+
+### What shipped
+- `vroom::io::run_counterfactual()` at `src/utils/counterfactual.{h,cpp}`. Reads `{problem, what_if}`, runs two solves in series, composes a response with `baseline_solution`, `modified_solution`, `diff` (via M5's `compute_plan_diff`), and `improvement`.
+- CLI flag `--counterfactual`: when set, the `-i` input is interpreted as an envelope and the normal solve path is bypassed.
+- Five `what_if` transformations per RFC §5.6.2: `add_vehicles`, `remove_vehicles`, `relax_time_windows`, `add_shipments`, `remove_shipments`. First-one-wins in that enumeration order.
+- `improvement.applied_what_if` records which key was applied (or `"none"` when the envelope carried an unrecognized / empty `what_if`).
+- `improvement.additional_assigned` counts distinct shipments (same dedup rule as M5's diff counters); negative values are semantically valid.
+- Five fixture envelopes under `tests/fixtures/counterfactual/`, one per `what_if` kind.
+- `scripts/test-counterfactual.sh` asserts output shape, applied-key match, cross-field consistency (improvement vs modified-solution vs diff), and solve-time upper bound. Wired into `.github/workflows/fork-ci.yml`.
+- `docs/API.md` — new "Counterfactual" section.
+- `CHANGELOG.md` — Unreleased → M6 entry.
+
+Observed solve times on the self-contained fixtures: 13–22 ms per side, total 26–40 ms round-trip. Well inside the RFC §5.6.3 "total ≤ 2× single solve" budget.
+
+### Behavioral change (consumer-visible)
+New CLI invocation mode. Zero impact on existing `bin/vroom -i ...` solve behavior — the counterfactual branch short-circuits the normal pipeline.
+
+### Design choices
+- **CLI-first, same as M5.** `POST /counterfactual` lives in vroom-express (separate upstream repo). Shell-out per request is the interim; upstream PR against vroom-express is a follow-up.
+- **Composition over re-implementation.** The flow is `parse → solve → mutate problem JSON → parse → solve → compute_plan_diff → compose`. No new optimization pass.
+- **Problem JSON is mutated at the rapidjson::Document level**, not via re-parse into `Input`. Cheaper and simpler for add / remove / filter / widen.
+- **RFC section number nit**: inbox #13 referenced §4.5, but F6 lives at §5.6 (P1 features start at §5). Implemented per §5.6.
+
+### Risks and open items
+- **HTTP endpoint wiring still owed in vroom-express** (same as M5's `/diff`).
+- **Upstream RFCs for every P0+P1 feature so far** still owed — same PAT scope blocker.
+- **GitLab registry secrets still absent.** Non-blocking until L2 deploy.
+
+### Post-M6: M7 vs M8 sequence proposal
+
+Owner asked for a sequence. Proposal: **M8 first, then M7, then checkpoint.**
+
+| | |
+|---|---|
+| **M8 (F8 published-vehicle soft stability)** | Direct answer to the "shuffle chaos" complaint that kicked off this fork. Dispatchers see stable routes across re-solves. Highest UAT-perceivable impact of any remaining milestone. |
+| **M7 (F7 driver shifts/breaks)** | Capability expansion. No consumer-LoC deletion in the RFC — the consumer doesn't model shifts today, so there's nothing to simplify. Useful for future dispatcher features but not on today's critical path. |
+| **"Skip M7 entirely"** | Left open as a decision post-M8 UAT. If the dispatcher confirms M8 covers their pain, we can close the roadmap without touching shifts. |
+
+Will start M8 on the next handoff unless owner overrides.
+
+### Notes for next milestone
+- **M8 = F8 published-vehicle soft stability** (~1 week per RFC §7). Adds a `published_vehicle` hint on a shipment — when the dispatcher has already told the passenger "you're on vehicle X at time Y", the solver pays a penalty for moving them to a different vehicle in a re-solve.
+- The `published_vehicle_deviation` bucket already exists as a zero placeholder in `cost_breakdown` since M1. Wire it up.
+- Likely design mirror of M4 (F2): input schema on the shipment, post-solve accounting for the deviation cost, bucket populated, solver sees it via the cost function or a biased initial solution — TBD during survey.
+- Pre-merge sanity: `make -C src -j && ./scripts/regression.sh tests/fixtures/regression && ./scripts/test-diff.sh && ./scripts/test-counterfactual.sh && ./scripts/bench.sh tests/fixtures/regression`.
+
+---
+
+## Inbox directive — issue #13 "M6 kickoff — F6 counterfactual mode" — 2026-04-18
+
+**Status**: complete
+**PR**: #14 (merged, `6e52a13d`); tag `v1.15.0-busportal.m6`
+**Summary**: Full M6 shipped on `feat/m6-counterfactual`. CLI mode + library + 5 fixtures (one per what_if kind) + test script + CI wiring + docs. M7/M8 sequence proposal (M8 first, M7 second, "skip M7" kept as post-M8 decision) recorded in the M6 milestone section above.
