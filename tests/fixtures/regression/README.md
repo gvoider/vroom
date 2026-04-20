@@ -23,6 +23,8 @@ check runs without a live router (no Valhalla, no OSRM).
 | `problem-soft-tw-before-preferred.json` | Busportal fork, M4 | Downstream hard TW caps pickup below `preferred_start`; pays `cost_per_second_before`. |
 | `problem-soft-tw-after-preferred.json` | Busportal fork, M4 | Earliest feasible past `preferred_end`; pays `cost_per_second_after` (shift-late pass does not pull earlier). |
 | `problem-synthetic-30.json` | Busportal fork, M4 (bench coverage) | Deterministic 28-shipment synthetic (`scripts/gen-synthetic-30.py`, seed 42). 20 regular + 5 co-located + 3 confirmed; some co-located carry `soft_time_window`. Bench fixture for the RFC §8 performance budget. |
+| `problem-published-vehicle-match.json` | Busportal fork, M8 | Shipment's `published_vehicle` hint matches its sole assigned vehicle; `published_vehicle_deviation` bucket stays 0 and route cost is unchanged from mainline. |
+| `problem-published-vehicle-deviation.json` | Busportal fork, M8 | Two-vehicle setup where the capacity-0 published vehicle can't fit the shipment, so the solver falls back to vehicle 1. The pass charges `published_vehicle_cost=500` into the deviation bucket; route cost = 1700 (mainline) + 500. |
 
 ## Diagnostics expectations
 

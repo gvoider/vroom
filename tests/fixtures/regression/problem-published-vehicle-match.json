@@ -1,0 +1,37 @@
+{
+  "_comment": "F8 match case (RFC §5.8): single-vehicle problem. Shipment carries published_vehicle=1 pointing at the only vehicle, so the post-solve pass sees assigned_vehicle == published_vehicle and charges zero. Breakdown's published_vehicle_deviation bucket stays 0; no change to route.cost vs mainline.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [5],
+      "costs": {"per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 801,
+        "location_index": 1,
+        "service": 100,
+        "time_windows": [[0, 10000]]
+      },
+      "delivery": {"id": 801, "location_index": 2, "service": 0},
+      "amount": [1],
+      "published_vehicle": 1,
+      "published_vehicle_cost": 500
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 500, 800],
+        [500, 0, 400],
+        [800, 400, 0]
+      ]
+    }
+  }
+}

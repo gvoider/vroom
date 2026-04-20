@@ -84,6 +84,8 @@ A `shipment` object has the following properties:
 | [`amount`] | an array of integers describing multidimensional quantities |
 | [`skills`] | an array of integers defining mandatory skills |
 | [`priority`] | an integer in the `[0, 100]` range describing priority level (defaults to 0) |
+| [`published_vehicle`] | *Busportal fork M8 / F8.* Optional preferred vehicle id; pays `published_vehicle_cost` if the solver places the shipment elsewhere. See below. |
+| [`published_vehicle_cost`] | *Busportal fork M8 / F8.* Non-negative cost associated with deviating from `published_vehicle`. Ignored when `published_vehicle` is absent. |
 
 A `shipment_step` is similar to a `job` object (expect for shared keys already present in `shipment`):
 
@@ -215,6 +217,72 @@ behavior identical to mainline.
   past `preferred.end` pays the `cost_per_second_after` penalty and is
   not reshuffled. If UAT finds this too conservative, a future
   milestone can add a bidirectional shift.
+
+### `published_vehicle` (Busportal fork, M8 / F8)
+
+A shipment can declare a preferred vehicle with an optional per-deviation
+cost. The fork uses it for "confirmed but not locked" passengers — the
+consumer would rather keep them on the previously-published vehicle but
+will allow the solver to move them if the global plan is dramatically
+better. Pair this with `skills` when the pinning needs to be HARD (skills
+remove the choice; `published_vehicle` just penalizes the deviation).
+
+```json
+"shipments": [
+  {
+    "pickup": { "id": 42, "location_index": 1 },
+    "delivery": { "id": 42, "location_index": 2 },
+    "amount": [1],
+    "published_vehicle": 3,
+    "published_vehicle_cost": 500
+  }
+]
+```
+
+| Key | Type | Description |
+|---|---|---|
+| `published_vehicle` | `Id` (uint) | Shipment-level hint. MUST reference an existing vehicle id, else the solver rejects with `code: 2`. |
+| `published_vehicle_cost` | number ≥ 0 | Cost charged once per shipment when the assigned vehicle differs from `published_vehicle`. Defaults to 0 (no-op) when omitted. |
+
+Both fields live on the shipment object, not on its pickup/delivery
+sub-objects. Jobs without a shipment wrapper are not covered by this
+milestone.
+
+Semantics (RFC §5.8.3):
+
+```
+if assigned_vehicle != published_vehicle:
+  cost += published_vehicle_cost
+```
+
+The penalty is soft: the solver can still move the shipment if other
+savings exceed `published_vehicle_cost`.
+
+#### Output additions
+
+- `cost_breakdown.published_vehicle_deviation` (both route- and summary-
+  level) sums the charged penalties. The placeholder from M1 is now
+  populated.
+- `route.cost` and `summary.cost` include the deviation penalty so the
+  sum-equals-cost invariant asserted by `scripts/regression.sh` keeps
+  holding.
+- No per-step field is emitted (the penalty is per-shipment, charged on
+  the pickup side).
+
+#### Implementation notes
+
+- The M8 pass is post-solve attribution. The solver picks routes using
+  mainline cost (travel + task + fixed) — `published_vehicle_cost` is
+  NOT consulted during move evaluation. This mirrors M4's pattern and
+  keeps the hot path unchanged; it stays inside the RFC §5.8.5 solve-
+  time budget (zero regression, full no-op on mainline problems).
+- As a consequence, visibility of the deviation in the breakdown is the
+  main deliverable today. If UAT shows the penalty alone does not
+  stabilize re-solves, a follow-up milestone can wire the cost into the
+  local-search insertion evaluator and operators. The `published_vehicle_cost`
+  value is tunable from the consumer side without any fork change.
+- The pass is a no-op when no shipment in the input carries a
+  `published_vehicle` hint.
 
 ## Plan diff (Busportal fork, M5 / F4)
 
@@ -722,7 +790,7 @@ with up to one integer unit of rounding drift per route and no more than
 | `task` | `task_duration × costs.per_task_hour / 3600` |
 | `priority_bias` | reserved for a future milestone (always 0 today) |
 | `soft_time_window_violation` | populated when M4 (soft time windows) ships |
-| `published_vehicle_deviation` | populated when M8 (published-vehicle soft stability) ships |
+| `published_vehicle_deviation` | Busportal fork, M8 / F8 — populated when a shipment carries a `published_vehicle` hint and lands on a different vehicle; see the shipment-level section below |
 
 Both objects are always present. The forward-looking keys are emitted as
 zero so downstream code can consume the same shape across milestones.

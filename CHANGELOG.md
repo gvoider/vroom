@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added (Busportal fork — M8, F8 published-vehicle soft stability)
+
+- New optional `published_vehicle` + `published_vehicle_cost` fields on `shipments[]` entries. When `published_vehicle` is set and the shipment lands on a different vehicle, the fork charges `published_vehicle_cost` (once per shipment) into the new `cost_breakdown.published_vehicle_deviation` bucket. The placeholder bucket from M1 is now populated.
+- `Job::published_vehicle` (`std::optional<Id>`) and `Job::published_vehicle_cost` (`UserCost`) — stamped onto both the pickup and the delivery Job for every shipment so lookups are symmetric; the post-solve pass dedups on the pickup step so the penalty is charged exactly once per shipment.
+- `Input::check_published_vehicles()` rejects any hint whose vehicle id doesn't appear in `vehicles[]` with `code: 2` — silent no-charge on a typo'd id would surprise the consumer.
+- `utils::apply_published_vehicle_pass()` at `src/utils/published_vehicle_pass.{h,cpp}` — post-solve attribution pass. Walks each route, charges the deviation for mismatched assignments, adds the total to `route.cost` and `route.cost_breakdown.published_vehicle_deviation`, then re-accumulates `summary` so the M1 sum-equals-cost invariant keeps holding.
+- Two new regression fixtures: `problem-published-vehicle-match.json` (hint points at the sole vehicle ⇒ deviation 0, mainline cost 1700) and `problem-published-vehicle-deviation.json` (hint points at a capacity-0 vehicle that can't serve the shipment ⇒ deviation 500, cost 2200).
+- New validation fixture `tests/fixtures/validation/problem-published-vehicle-reject.json` — exercises the "published_vehicle id doesn't exist" rejection path.
+- `docs/API.md` — new `published_vehicle` subsection next to `soft_time_window`; shipment-fields table updated; `cost_breakdown` table cell for `published_vehicle_deviation` now reflects M8.
+
+Implementation notes:
+- **Post-solve attribution only, mirror of M4.** The solver picks routes using mainline cost; the M8 pass is pure accounting. Zero regression on the RFC §5.8.5 solve-time budget; full no-op on mainline problems (short-circuits when no shipment carries a `published_vehicle`).
+- **Visibility, not solver-side steering, is the M8 deliverable.** The `published_vehicle_deviation` bucket gives the dispatcher "how much this solution deviated from last published" as a numeric signal they can inspect in `/diff` and tune via `published_vehicle_cost`. If UAT shows that pure visibility doesn't stabilize re-solves (the cost-trade-off mentioned in RFC §5.8.3 only kicks in once the solver actually sees it), a follow-up milestone can wire the penalty into `try_job_additions` in `local_search.cpp` and the operators that compute cost deltas.
+- **De-dup via pickup step.** Both the pickup and the delivery Job carry the hint; the pass only counts on `STEP_TYPE::JOB + JOB_TYPE::PICKUP` so the penalty is charged exactly once per shipment per route.
+- **Ordering.** The pass runs AFTER `apply_soft_time_window_pass` so its summary re-accumulation sees the soft-TW bucket already populated. Each pass rebuilds summary from routes, so order only matters insofar as each pass must see the previous one's route-level mutations.
+
 ### Added (Busportal fork — M6, F6 counterfactual mode)
 
 - New CLI mode `bin/vroom --counterfactual -i envelope.json` reads a `{problem, what_if}` envelope, runs the baseline and modified solves in series, and emits an RFC §5.6.2-shaped response with `baseline_solution`, `modified_solution`, `diff`, and `improvement`.

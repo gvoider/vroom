@@ -21,10 +21,12 @@ namespace vroom {
 // within integer rounding (|drift| <= 1 unit per route; aggregates sum
 // linearly so the drift on the summary is bounded by route count).
 //
-// The three forward-looking fields (priority_bias, soft_time_window_violation,
-// published_vehicle_deviation) are populated by later milestones (M4, M8);
-// they stay at zero in the M1 baseline so the invariant holds on mainline-
-// compatible problems.
+// Two of the forward-looking fields are now populated: soft_time_window_violation
+// (M4 — `utils::apply_soft_time_window_pass`) and published_vehicle_deviation
+// (M8 — `utils::apply_published_vehicle_pass`). `priority_bias` is still
+// reserved for a future milestone and stays at zero; the invariant holds on
+// mainline-compatible problems because both populated passes are no-ops when
+// no shipment / step carries the corresponding hint.
 struct CostBreakdown {
   UserCost fixed_vehicle{0};
   UserCost duration{0};
