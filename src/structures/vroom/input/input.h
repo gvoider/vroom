@@ -119,6 +119,12 @@ private:
   void set_extra_compatibility();
   void set_vehicles_compatibility();
   void set_vehicles_costs();
+
+  // Busportal fork, M8 / F8. Every Job whose `published_vehicle` is set
+  // must reference a vehicle that exists in the `vehicles[]` list.
+  // Called from solve() before the solve so a malformed hint surfaces
+  // as an InputException with `code: 2`, not a silent no-op.
+  void check_published_vehicles() const;
   void set_vehicles_max_tasks();
   void set_jobs_vehicles_evals();
   void set_jobs_durations_per_vehicle_type();

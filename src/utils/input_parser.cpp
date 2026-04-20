@@ -291,6 +291,52 @@ inline SoftTimeWindow get_soft_time_window(const rapidjson::Value& o,
   return SoftTimeWindow(pref_start, pref_end, cost_before, cost_after);
 }
 
+// Busportal fork, M8 / F8. Parse optional shipment-level published-vehicle
+// hint. Returns (published_vehicle, published_vehicle_cost); both nullopt
+// if absent. When `published_vehicle` is given, `published_vehicle_cost`
+// defaults to 0 if absent (a 0 penalty is a no-op at attribution time,
+// matching "consumer set the hint but forgot the cost — do nothing").
+struct PublishedVehicleHint {
+  std::optional<Id> vehicle_id;
+  UserCost cost{0};
+};
+inline PublishedVehicleHint get_published_vehicle(const rapidjson::Value& o,
+                                                  Id shipment_id) {
+  PublishedVehicleHint hint;
+  if (!o.HasMember("published_vehicle")) {
+    // Either field alone is meaningless; reject standalone cost.
+    if (o.HasMember("published_vehicle_cost")) {
+      throw InputException(std::format(
+        "published_vehicle_cost given without published_vehicle on "
+        "shipment {}.",
+        shipment_id));
+    }
+    return hint;
+  }
+  if (!o["published_vehicle"].IsUint64()) {
+    throw InputException(
+      std::format("Invalid published_vehicle for shipment {}.", shipment_id));
+  }
+  hint.vehicle_id = o["published_vehicle"].GetUint64();
+
+  if (o.HasMember("published_vehicle_cost")) {
+    const auto& c = o["published_vehicle_cost"];
+    if (!c.IsNumber()) {
+      throw InputException(
+        std::format("Invalid published_vehicle_cost for shipment {}.",
+                    shipment_id));
+    }
+    const double raw = c.GetDouble();
+    if (raw < 0) {
+      throw InputException(
+        std::format("published_vehicle_cost must be >= 0 for shipment {}.",
+                    shipment_id));
+    }
+    hint.cost = static_cast<UserCost>(raw);
+  }
+  return hint;
+}
+
 inline Break get_break(const rapidjson::Value& b, unsigned amount_size) {
   check_id(b, "break");
 
@@ -694,6 +740,12 @@ void parse(Input& input,
       auto co_located_group = get_string(json_pickup, "co_located_group");
       const auto pickup_id = json_pickup["id"].GetUint64();
 
+      // Busportal fork, M8 / F8. The published_vehicle hint is a
+      // shipment-level field (not per-step). Stamp the same hint on both
+      // the pickup Job and the delivery Job so post-solve lookups work
+      // through either id; the pass de-duplicates at attribution time.
+      const auto pub_hint = get_published_vehicle(json_shipment, pickup_id);
+
       const Job pickup(pickup_id,
                        JOB_TYPE::PICKUP,
                        get_task_location(json_pickup, "pickup"),
@@ -711,7 +763,9 @@ void parse(Input& input,
                                              "service_per_type",
                                              "pickup"),
                        std::move(co_located_group),
-                       get_soft_time_window(json_pickup, "pickup", pickup_id));
+                       get_soft_time_window(json_pickup, "pickup", pickup_id),
+                       pub_hint.vehicle_id,
+                       pub_hint.cost);
 
       // Defining delivery job.
       auto& json_delivery = json_shipment["delivery"];
@@ -732,7 +786,9 @@ void parse(Input& input,
         get_duration_per_type(json_delivery, "setup_per_type", "delivery"),
         get_duration_per_type(json_delivery, "service_per_type", "delivery"),
         /*co_located_group=*/"",
-        get_soft_time_window(json_delivery, "delivery", delivery_id));
+        get_soft_time_window(json_delivery, "delivery", delivery_id),
+        pub_hint.vehicle_id,
+        pub_hint.cost);
 
       input.add_shipment(pickup, delivery);
     }

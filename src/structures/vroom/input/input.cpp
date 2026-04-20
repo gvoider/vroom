@@ -13,6 +13,7 @@ All rights reserved (see LICENSE).
 #include <semaphore>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 #if USE_LIBOSRM
 #include "osrm/exception.hpp"
@@ -30,6 +31,7 @@ All rights reserved (see LICENSE).
 #include "structures/vroom/input/input.h"
 #include "utils/co_location_dedup.h"
 #include "utils/helpers.h"
+#include "utils/published_vehicle_pass.h"
 #include "utils/soft_time_window_pass.h"
 
 namespace vroom {
@@ -1288,6 +1290,39 @@ void Input::check_soft_time_windows() const {
   }
 }
 
+void Input::check_published_vehicles() const {
+  // Busportal fork, M8 / F8. Every Job whose `published_vehicle` is set
+  // must reference a vehicle id that actually appears in the vehicles[]
+  // list; otherwise the post-solve pass would silently skip the penalty
+  // (wrong vehicle always mismatches, but a typo-ed id would charge the
+  // cost unconditionally and surprise the consumer).
+  bool any_hint = false;
+  for (const auto& job : jobs) {
+    if (job.published_vehicle.has_value()) {
+      any_hint = true;
+      break;
+    }
+  }
+  if (!any_hint) {
+    return;
+  }
+  std::unordered_set<Id> vehicle_ids;
+  vehicle_ids.reserve(vehicles.size());
+  for (const auto& v : vehicles) {
+    vehicle_ids.insert(v.id);
+  }
+  for (const auto& job : jobs) {
+    if (job.published_vehicle.has_value() &&
+        !vehicle_ids.contains(*job.published_vehicle)) {
+      throw InputException(
+        std::format("published_vehicle {} on job {} does not match any "
+                    "vehicle id.",
+                    *job.published_vehicle,
+                    job.id));
+    }
+  }
+}
+
 Solution Input::solve(const unsigned nb_searches,
                       const unsigned depth,
                       const unsigned nb_thread,
@@ -1295,6 +1330,7 @@ Solution Input::solve(const unsigned nb_searches,
   run_basic_checks();
   check_co_located_groups();
   check_soft_time_windows();
+  check_published_vehicles();
 
   if (_has_initial_routes) {
     set_vehicle_steps_ranks();
@@ -1401,6 +1437,14 @@ Solution Input::solve(const unsigned nb_searches,
   // shift arrivals as late as feasible toward each step's preferred
   // interval, then compute violation costs and roll into the breakdown.
   utils::apply_soft_time_window_pass(*this, sol);
+
+  // Busportal fork, M8 / F8. Published-vehicle deviation post-solve
+  // pass: for each shipment whose `published_vehicle` hint differs
+  // from its assigned route, add `published_vehicle_cost` to the
+  // route's `published_vehicle_deviation` bucket and to `route.cost`.
+  // Ordered after the soft-TW pass so its cost re-accumulation sees
+  // the soft-TW bucket already populated.
+  utils::apply_published_vehicle_pass(*this, sol);
 
   return sol;
 }
