@@ -71,6 +71,32 @@ inline unsigned get_nb_searches(unsigned exploration_level) {
   return nb_searches;
 }
 
+// Busportal fork, M8 / F8. Solver-objective penalty for the
+// published-vehicle hint. Returns the deviation cost charged when
+// inserting `job` onto vehicle `v`:
+//   - 0 if the job has no hint
+//   - 0 if the hint matches v.id
+//   - scaled `published_vehicle_cost` otherwise
+//
+// Delivery jobs short-circuit to 0. A shipment's hint is stamped on
+// both pickup and delivery jobs, but the route-eval routines always
+// reach each pickup/delivery via separate addition_eval calls, so
+// charging only the pickup keeps the penalty counted exactly once
+// per shipment. This matches the post-solve attribution in
+// utils/published_vehicle_pass.cpp.
+inline Cost published_vehicle_penalty(const Job& job, const Vehicle& v) {
+  if (job.type == JOB_TYPE::DELIVERY) {
+    return 0;
+  }
+  if (!job.published_vehicle.has_value()) {
+    return 0;
+  }
+  if (job.published_vehicle.value() == v.id) {
+    return 0;
+  }
+  return scale_from_user_cost(job.published_vehicle_cost);
+}
+
 // Evaluate adding job with rank job_rank in given route at given rank
 // for vehicle v.
 inline Eval addition_eval(const Input& input,
@@ -146,7 +172,8 @@ inline Eval addition_eval(const Input& input,
   }
 
   return previous_eval + next_eval - old_edge_eval +
-         v.task_eval(added_task_duration);
+         v.task_eval(added_task_duration) +
+         Eval(published_vehicle_penalty(job, v));
 }
 
 // Evaluate adding pickup with rank job_rank and associated delivery
