@@ -1,0 +1,157 @@
+{
+    "code": 0,
+    "summary": {
+        "cost": 6500,
+        "cost_breakdown": {
+            "fixed_vehicle": 5000,
+            "duration": 1500,
+            "distance": 0,
+            "task": 0,
+            "priority_bias": 0,
+            "soft_time_window_violation": 0,
+            "published_vehicle_deviation": 0
+        },
+        "routes": 1,
+        "unassigned": 0,
+        "delivery": [
+            2
+        ],
+        "amount": [
+            2
+        ],
+        "pickup": [
+            2
+        ],
+        "setup": 0,
+        "service": 0,
+        "duration": 1500,
+        "waiting_time": 0,
+        "priority": 0,
+        "violations": [],
+        "computing_times": {
+            "loading": 0,
+            "solving": 3,
+            "routing": 0,
+            "co_location_savings_seconds": 0
+        }
+    },
+    "unassigned": [],
+    "routes": [
+        {
+            "vehicle": 2,
+            "cost": 6500,
+            "cost_breakdown": {
+                "fixed_vehicle": 5000,
+                "duration": 1500,
+                "distance": 0,
+                "task": 0,
+                "priority_bias": 0,
+                "soft_time_window_violation": 0,
+                "published_vehicle_deviation": 0
+            },
+            "delivery": [
+                2
+            ],
+            "amount": [
+                2
+            ],
+            "pickup": [
+                2
+            ],
+            "setup": 0,
+            "service": 0,
+            "duration": 1500,
+            "waiting_time": 0,
+            "priority": 0,
+            "steps": [
+                {
+                    "type": "start",
+                    "location_index": 3,
+                    "setup": 0,
+                    "service": 0,
+                    "waiting_time": 0,
+                    "load": [
+                        0
+                    ],
+                    "arrival": 0,
+                    "duration": 0,
+                    "violations": []
+                },
+                {
+                    "type": "pickup",
+                    "location_index": 2,
+                    "id": 8,
+                    "setup": 0,
+                    "service": 0,
+                    "waiting_time": 0,
+                    "job": 8,
+                    "load": [
+                        1
+                    ],
+                    "arrival": 300,
+                    "duration": 300,
+                    "violations": []
+                },
+                {
+                    "type": "delivery",
+                    "location_index": 2,
+                    "id": 8,
+                    "setup": 0,
+                    "service": 0,
+                    "waiting_time": 0,
+                    "job": 8,
+                    "load": [
+                        0
+                    ],
+                    "arrival": 300,
+                    "duration": 300,
+                    "violations": []
+                },
+                {
+                    "type": "pickup",
+                    "location_index": 1,
+                    "id": 7,
+                    "setup": 0,
+                    "service": 0,
+                    "waiting_time": 0,
+                    "job": 7,
+                    "load": [
+                        1
+                    ],
+                    "arrival": 1000,
+                    "duration": 1000,
+                    "violations": []
+                },
+                {
+                    "type": "delivery",
+                    "location_index": 1,
+                    "id": 7,
+                    "setup": 0,
+                    "service": 0,
+                    "waiting_time": 0,
+                    "job": 7,
+                    "load": [
+                        0
+                    ],
+                    "arrival": 1000,
+                    "duration": 1000,
+                    "violations": []
+                },
+                {
+                    "type": "end",
+                    "location_index": 3,
+                    "setup": 0,
+                    "service": 0,
+                    "waiting_time": 0,
+                    "load": [
+                        0
+                    ],
+                    "arrival": 1500,
+                    "duration": 1500,
+                    "violations": []
+                }
+            ],
+            "violations": []
+        }
+    ]
+}

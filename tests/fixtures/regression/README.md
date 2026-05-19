@@ -25,6 +25,9 @@ check runs without a live router (no Valhalla, no OSRM).
 | `problem-synthetic-30.json` | Busportal fork, M4 (bench coverage) | Deterministic 28-shipment synthetic (`scripts/gen-synthetic-30.py`, seed 42). 20 regular + 5 co-located + 3 confirmed; some co-located carry `soft_time_window`. Bench fixture for the RFC §8 performance budget. |
 | `problem-published-vehicle-match.json` | Busportal fork, M8 | Shipment's `published_vehicle` hint matches its sole assigned vehicle; `published_vehicle_deviation` bucket stays 0 and route cost is unchanged from mainline. |
 | `problem-published-vehicle-deviation.json` | Busportal fork, M8 | Two-vehicle setup where the capacity-0 published vehicle can't fit the shipment, so the solver falls back to vehicle 1. The pass charges `published_vehicle_cost=500` into the deviation bucket; route cost = 1700 (mainline) + 500. |
+| `problem-published-vehicle-stability-baseline.json` | Busportal fork, M8 | Two vehicles at different depots, one shipment. V1 (depot loc 0) is closer to shipment 7 (loc 1) than V2 (depot loc 3); solver picks V1=[7] at cost 5400. Sets up the migration scenario tested by the unhinted/pinned pair. |
+| `problem-published-vehicle-stability-unhinted.json` | Busportal fork, M8 | Baseline + shipment 8 (loc 2, closer to V2). Without a hint the cheapest single-vehicle plan is V2=[8,7] at 6500 — shipment 7 has migrated off V1. This is exactly the dispatcher reshuffle complaint the fork was built for. |
+| `problem-published-vehicle-stability-pinned.json` | Busportal fork, M8 | Same as `-unhinted` but shipment 7 carries `published_vehicle=1` + `published_vehicle_cost=300`. The hot-path penalty raises V2=[8,7] to 6800 vs V1=[7,8] at 6700; solver keeps shipment 7 on V1. **This is the M8 acceptance criterion.** If a future change breaks hot-path wiring, this fixture's recorded cost shifts from 6700 to 6800 and the regression script fails. |
 
 ## Diagnostics expectations
 
