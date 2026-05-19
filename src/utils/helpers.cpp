@@ -346,10 +346,25 @@ Solution format_solution(const Input& input, const RawSolution& raw_routes) {
     const UserCost user_task_cost =
       scale_to_user_cost(v.task_cost(setup + service));
 
+    // Busportal fork, M8 / F8. Sum the published-vehicle deviation
+    // penalty over the route's jobs in scaled-cost units, then drop
+    // back to UserCost once. Adds to total route.cost (so the M1 sum
+    // invariant holds against the deviation bucket) but stays out of
+    // the travel/duration/distance/task buckets which the breakdown
+    // computes from raw metrics. The matching bucket value is filled
+    // by utils::apply_published_vehicle_pass.
+    Cost route_penalty_internal = 0;
+    for (auto job_rank : route) {
+      route_penalty_internal +=
+        published_vehicle_penalty(input.jobs[job_rank], v);
+    }
+    const UserCost user_penalty_cost = scale_to_user_cost(route_penalty_internal);
+
     const auto user_route_duration = scale_to_user_duration(eval_sum.duration);
     routes.emplace_back(v.id,
                         std::move(steps),
-                        user_fixed_cost + user_travel_cost + user_task_cost,
+                        user_fixed_cost + user_travel_cost + user_task_cost +
+                          user_penalty_cost,
                         user_route_duration,
                         eval_sum.distance,
                         scale_to_user_duration(setup),
@@ -847,9 +862,23 @@ Route format_route(const Input& input,
   const UserCost user_task_cost =
     scale_to_user_cost(v.task_cost(setup + service));
 
+  // Busportal fork, M8 / F8. Sum the published-vehicle deviation
+  // penalty over the route's jobs (same shape as the format_solution
+  // path for raw routes). Added to total route.cost so the M1 sum
+  // invariant holds against the deviation bucket; not folded into
+  // travel/duration/distance/task. Bucket value comes from
+  // utils::apply_published_vehicle_pass.
+  Cost route_penalty_internal = 0;
+  for (std::size_t r = 0; r < tw_r.route.size(); ++r) {
+    route_penalty_internal +=
+      published_vehicle_penalty(input.jobs[tw_r.route[r]], v);
+  }
+  const UserCost user_penalty_cost = scale_to_user_cost(route_penalty_internal);
+
   Route route(v.id,
               std::move(steps),
-              user_fixed_cost + user_travel_cost + user_task_cost,
+              user_fixed_cost + user_travel_cost + user_task_cost +
+                user_penalty_cost,
               user_duration,
               eval_sum.distance,
               scale_to_user_duration(setup),
