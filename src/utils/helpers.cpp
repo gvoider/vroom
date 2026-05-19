@@ -79,6 +79,14 @@ Eval route_eval_for_vehicle(const Input& input,
     }
 
     eval += v.task_eval(jobs_task_duration);
+
+    // Busportal fork, M8 / F8. Sum the published-vehicle penalty
+    // contribution so this route summary equals the incremental
+    // addition_eval / *_delta sums that drive the local search. No-op
+    // when no job in the route carries the hint.
+    for (auto job_rank : route) {
+      eval.cost += published_vehicle_penalty(input.jobs[job_rank], v);
+    }
   }
 
   return eval;

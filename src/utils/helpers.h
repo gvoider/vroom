@@ -454,10 +454,24 @@ addition_eval_delta(const Input& input,
     }
   }
 
+  // Busportal fork, M8 / F8. Cross-route range replacement: jobs in
+  // r1[first_rank..last_rank) leave v1 (gain their penalty back) and
+  // jobs in r2[insertion_start..insertion_end) arrive on v1 (incur
+  // their penalty here). Same delta for straight and reversed — the
+  // job set on v1 is identical, only the visit order differs.
+  Cost penalty_delta = 0;
+  for (Index i = first_rank; i < last_rank; ++i) {
+    penalty_delta += published_vehicle_penalty(input.jobs[r1[i]], v1);
+  }
+  for (Index i = insertion_start; i < insertion_end; ++i) {
+    penalty_delta -= published_vehicle_penalty(input.jobs[r2[i]], v1);
+  }
+  const Eval penalty_eval(penalty_delta);
+
   return std::make_tuple(cost_delta + service_delta + straight_delta +
-                           v1.task_eval(straight_task_setup),
+                           v1.task_eval(straight_task_setup) + penalty_eval,
                          cost_delta + service_delta + reversed_delta +
-                           v1.task_eval(reversed_task_setup));
+                           v1.task_eval(reversed_task_setup) + penalty_eval);
 }
 
 // Compute cost variation when replacing the *non-empty* [first_rank,
@@ -528,7 +542,17 @@ inline Eval addition_eval_delta(const Input& input,
     added_task_duration += job.setups[v.type];
   }
 
-  return cost_delta - v.task_eval(added_task_duration);
+  // Busportal fork, M8 / F8. Range replacement on a single vehicle:
+  // jobs in r[first_rank..last_rank) are removed (lose their penalty
+  // on v, a gain), and `job` is inserted (incurs its penalty on v, a
+  // cost). Sign convention matches the rest of cost_delta: positive
+  // = swap is profitable.
+  Cost penalty_delta = -published_vehicle_penalty(job, v);
+  for (Index i = first_rank; i < last_rank; ++i) {
+    penalty_delta += published_vehicle_penalty(input.jobs[r[i]], v);
+  }
+
+  return cost_delta - v.task_eval(added_task_duration) + Eval(penalty_delta);
 }
 
 // Compute cost variation when removing the range [first_rank,
@@ -691,8 +715,15 @@ inline Eval in_place_delta_eval(const Input& input,
     added_task_duration += job.setups[v.type];
   }
 
+  // Busportal fork, M8 / F8. SwapStar replaces r[rank] with job_rank
+  // on the same vehicle. Penalty delta = new job's penalty minus old
+  // job's penalty (both evaluated against v).
+  const Cost penalty_delta =
+    published_vehicle_penalty(job, v) -
+    published_vehicle_penalty(input.jobs[r[rank]], v);
+
   return new_previous_eval + new_next_eval - old_virtual_eval +
-         v.task_eval(added_task_duration);
+         v.task_eval(added_task_duration) + Eval(penalty_delta);
 }
 
 Priority priority_sum_for_route(const Input& input,

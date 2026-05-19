@@ -50,6 +50,13 @@ void apply_published_vehicle_pass(const Input& input, Solution& sol) {
     return;
   }
 
+  // Bucket-only attribution. The cost itself is now charged inside
+  // the local-search hot path (see utils/helpers.h::
+  // published_vehicle_penalty + addition_eval / *_delta / route_eval_
+  // for_vehicle), so route.cost and sol.summary.cost already include
+  // the deviation. This pass just splits the realized penalty into
+  // its dedicated cost_breakdown bucket so consumers can read "how
+  // much of the total came from re-vehicle-ing confirmed pax."
   for (auto& route : sol.routes) {
     UserCost route_deviation = 0;
     for (const auto& step : route.steps) {
@@ -62,19 +69,15 @@ void apply_published_vehicle_pass(const Input& input, Solution& sol) {
       }
     }
     route.cost_breakdown.published_vehicle_deviation = route_deviation;
-    route.cost += route_deviation;
   }
 
-  // Re-accumulate summary totals from routes so every bucket sums to
-  // cost (matches the M1 sum invariant guarded by scripts/regression.sh).
+  // Re-accumulate the summary's cost_breakdown only — route costs are
+  // already correct (charged in-loop), so we mustn't re-sum sol.summary.cost.
   CostBreakdown bd;
-  UserCost cost = 0;
   for (const auto& route : sol.routes) {
     bd += route.cost_breakdown;
-    cost += route.cost;
   }
   sol.summary.cost_breakdown = bd;
-  sol.summary.cost = cost;
 }
 
 } // namespace vroom::utils
