@@ -10,6 +10,7 @@ All rights reserved (see LICENSE).
 
 */
 
+#include <optional>
 #include <string>
 
 #include "structures/typedefs.h"
@@ -49,6 +50,16 @@ struct Job {
   // preferred_end] pay a linear cost — see RFC §4.2. Absent ⇒ mainline.
   const SoftTimeWindow soft_time_window;
 
+  // Busportal fork, M8 / F8. Optional preferred-vehicle hint. When set,
+  // the shipment pays `published_vehicle_cost` post-solve if it lands on
+  // a different vehicle than the hint — see RFC §5.8. On a shipment the
+  // same hint is stamped on BOTH the pickup and the delivery Job so
+  // lookups are symmetric; the post-solve pass de-duplicates via the
+  // pickup step so the penalty is charged once per shipment. Absent ⇒
+  // mainline.
+  const std::optional<Id> published_vehicle;
+  const UserCost published_vehicle_cost{0};
+
   // Constructor for regular one-stop job (JOB_TYPE::SINGLE).
   Job(Id id,
       const Location& location,
@@ -63,7 +74,9 @@ struct Job {
       std::string description = "",
       const TypeToUserDurationMap& setup_per_type = TypeToUserDurationMap(),
       const TypeToUserDurationMap& service_per_type = TypeToUserDurationMap(),
-      SoftTimeWindow soft_time_window = SoftTimeWindow{});
+      SoftTimeWindow soft_time_window = SoftTimeWindow{},
+      std::optional<Id> published_vehicle = std::nullopt,
+      UserCost published_vehicle_cost = 0);
 
   // Constructor for pickup and delivery jobs (JOB_TYPE::PICKUP or
   // JOB_TYPE::DELIVERY).
@@ -81,7 +94,9 @@ struct Job {
       const TypeToUserDurationMap& setup_per_type = TypeToUserDurationMap(),
       const TypeToUserDurationMap& service_per_type = TypeToUserDurationMap(),
       std::string co_located_group = "",
-      SoftTimeWindow soft_time_window = SoftTimeWindow{});
+      SoftTimeWindow soft_time_window = SoftTimeWindow{},
+      std::optional<Id> published_vehicle = std::nullopt,
+      UserCost published_vehicle_cost = 0);
 
   Index index() const {
     return location.index();

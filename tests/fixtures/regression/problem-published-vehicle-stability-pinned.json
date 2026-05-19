@@ -1,0 +1,57 @@
+{
+  "_comment": "F8 stability pinned (RFC §5.8): same as problem-published-vehicle-stability-unhinted but shipment 7 carries published_vehicle=1 + published_vehicle_cost=300. Without the hint, V2=[8,7] at 6500 wins (shipment 7 migrates). With the hint, V2=[8,7] now costs 6500 + 300 = 6800 vs V1=[7,8] at 6700 + 0 = 6700, so V1=[7,8] wins. Shipment 7 STAYS on its hinted vehicle even though V2 would otherwise be cheaper by 200. This is the M8 acceptance criterion — solver-integrated stability, NOT post-solve labeling. If a future change breaks the hot-path wiring (e.g., reverts the trim of route.cost += in apply_published_vehicle_pass, or skips one of the eval-site edits in src/utils/helpers.h / helpers.cpp), this fixture's recorded cost shifts back to 6800 with deviation=300 — regression script catches it.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [10],
+      "costs": {"fixed": 5000, "per_hour": 3600}
+    },
+    {
+      "id": 2,
+      "profile": "auto",
+      "start_index": 3,
+      "end_index": 3,
+      "time_window": [0, 10000],
+      "capacity": [10],
+      "costs": {"fixed": 5000, "per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 7,
+        "location_index": 1,
+        "service": 0,
+        "time_windows": [[0, 10000]]
+      },
+      "delivery": {"id": 7, "location_index": 1, "service": 0},
+      "amount": [1],
+      "published_vehicle": 1,
+      "published_vehicle_cost": 300
+    },
+    {
+      "pickup": {
+        "id": 8,
+        "location_index": 2,
+        "service": 0,
+        "time_windows": [[0, 10000]]
+      },
+      "delivery": {"id": 8, "location_index": 2, "service": 0},
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 200, 800, 900],
+        [200, 0, 700, 500],
+        [800, 700, 0, 300],
+        [900, 500, 300, 0]
+      ]
+    }
+  }
+}

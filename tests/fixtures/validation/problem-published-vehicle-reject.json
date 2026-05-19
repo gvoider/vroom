@@ -1,0 +1,37 @@
+{
+  "_comment": "F8 validation case: published_vehicle=99 does not match any vehicle id (the only vehicle has id=1). Input::check_published_vehicles() rejects with InputException; vroom exits with code=2. Not run by scripts/regression.sh (solver is expected to fail) — see tests/fixtures/validation/README.md.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [5],
+      "costs": {"per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 803,
+        "location_index": 1,
+        "service": 100,
+        "time_windows": [[0, 10000]]
+      },
+      "delivery": {"id": 803, "location_index": 2, "service": 0},
+      "amount": [1],
+      "published_vehicle": 99,
+      "published_vehicle_cost": 500
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 500, 800],
+        [500, 0, 400],
+        [800, 400, 0]
+      ]
+    }
+  }
+}

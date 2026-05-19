@@ -1,0 +1,45 @@
+{
+  "_comment": "F8 stability baseline (RFC §5.8): two vehicles at different depots, one shipment. fixed_vehicle=5000 makes the solver prefer single-vehicle plans. Shipment 7 picks up and delivers at loc 1; vehicle 1 (depot loc 0) is closer than vehicle 2 (depot loc 3). Expected: V1=[7], cost = 200(0→1)+200(1→0)+5000(fixed) = 5400. Pairs with problem-published-vehicle-stability-{unhinted,pinned} which add shipment 8 (closer to V2) — these together prove the M8 hot-path stability across re-solves.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [10],
+      "costs": {"fixed": 5000, "per_hour": 3600}
+    },
+    {
+      "id": 2,
+      "profile": "auto",
+      "start_index": 3,
+      "end_index": 3,
+      "time_window": [0, 10000],
+      "capacity": [10],
+      "costs": {"fixed": 5000, "per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 7,
+        "location_index": 1,
+        "service": 0,
+        "time_windows": [[0, 10000]]
+      },
+      "delivery": {"id": 7, "location_index": 1, "service": 0},
+      "amount": [1]
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 200, 800, 900],
+        [200, 0, 700, 500],
+        [800, 700, 0, 300],
+        [900, 500, 300, 0]
+      ]
+    }
+  }
+}

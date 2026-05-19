@@ -1,0 +1,46 @@
+{
+  "_comment": "F8 deviation case (RFC §5.8): two vehicles, shipment's published_vehicle hint points at vehicle 2 but capacity [0] on vehicle 2 forces the solver to assign to vehicle 1. Post-solve pass sees assigned_vehicle (1) != published_vehicle (2) and charges published_vehicle_cost=500 into the published_vehicle_deviation bucket. Route cost inflates from 1700 (mainline) to 2200.",
+  "vehicles": [
+    {
+      "id": 1,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [5],
+      "costs": {"per_hour": 3600}
+    },
+    {
+      "id": 2,
+      "profile": "auto",
+      "start_index": 0,
+      "end_index": 0,
+      "time_window": [0, 10000],
+      "capacity": [0],
+      "costs": {"per_hour": 3600}
+    }
+  ],
+  "shipments": [
+    {
+      "pickup": {
+        "id": 802,
+        "location_index": 1,
+        "service": 100,
+        "time_windows": [[0, 10000]]
+      },
+      "delivery": {"id": 802, "location_index": 2, "service": 0},
+      "amount": [1],
+      "published_vehicle": 2,
+      "published_vehicle_cost": 500
+    }
+  ],
+  "matrices": {
+    "auto": {
+      "durations": [
+        [0, 500, 800],
+        [500, 0, 400],
+        [800, 400, 0]
+      ]
+    }
+  }
+}
